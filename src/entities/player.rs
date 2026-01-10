@@ -25,6 +25,12 @@ impl Plugin for PlayerPlugin {
             .add_systems(OnEnter(GameState::Menu), despawn_player)
             .add_systems(OnEnter(GameState::GameOver), despawn_player)
             .add_systems(OnEnter(GameState::Recharge), despawn_player)
+            // 升级卡片出现/选择期间会暂停游戏逻辑，但鼠标/触摸仍可能保持按下；
+            // 这里在 upgrading 时清空拖拽状态，避免恢复后战机因“旧 last_position”产生跳跃。
+            .add_systems(
+                Update,
+                reset_drag_state_when_upgrading.run_if(in_state(GameState::Playing)),
+            )
             .add_systems(
                 Update,
                 (
@@ -44,6 +50,13 @@ impl Plugin for PlayerPlugin {
                     .run_if(in_state(GameState::Playing))
                     .run_if(not_upgrading),
             );
+    }
+}
+
+fn reset_drag_state_when_upgrading(game_data: Res<GameData>, mut drag_state: ResMut<DragState>) {
+    if game_data.upgrading && (drag_state.dragging || drag_state.last_position.is_some()) {
+        drag_state.dragging = false;
+        drag_state.last_position = None;
     }
 }
 
