@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>几何射击 - Geometry Shooter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #000;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        #game-container {
+            position: relative;
+            width: 480px;
+            height: 720px;
+            max-width: 100vw;
+            max-height: 100vh;
+        }
+
+        #game-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        #loading {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #0a0a1a 0%, #1a1a2e 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            transition: opacity 0.5s ease-out;
+        }
+
+        #loading.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loading-title {
+            color: #00d4ff;
+            font-size: 32px;
+            margin-bottom: 30px;
+            text-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+        }
+
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(0, 212, 255, 0.2);
+            border-top-color: #00d4ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: #888;
+            margin-top: 20px;
+            font-size: 14px;
+        }
+
+        .loading-progress {
+            width: 200px;
+            height: 4px;
+            background: rgba(0, 212, 255, 0.2);
+            border-radius: 2px;
+            margin-top: 20px;
+            overflow: hidden;
+        }
+
+        .loading-progress-bar {
+            height: 100%;
+            background: #00d4ff;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        /* 错误提示 */
+        #error-message {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+            padding: 20px;
+            text-align: center;
+        }
+
+        #error-message h2 {
+            color: #ff6b6b;
+            margin-bottom: 20px;
+        }
+
+        #error-message p {
+            color: #aaa;
+            max-width: 400px;
+            line-height: 1.6;
+        }
+
+        #error-message button {
+            margin-top: 20px;
+            padding: 10px 30px;
+            background: #00d4ff;
+            border: none;
+            border-radius: 5px;
+            color: #000;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        /* 移动端触控提示 */
+        #touch-hint {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        /* 响应式调整 */
+        @media (max-width: 480px) {
+            #game-container {
+                width: 100vw;
+                height: 100vh;
+            }
+        }
+
+        @media (max-height: 720px) {
+            #game-container {
+                height: 100vh;
+                width: calc(100vh * 480 / 720);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="game-canvas"></canvas>
+        
+        <div id="loading">
+            <h1 class="loading-title">几何射击</h1>
+            <div class="loading-spinner"></div>
+            <p class="loading-text">正在加载游戏...</p>
+            <div class="loading-progress">
+                <div class="loading-progress-bar" id="progress-bar"></div>
+            </div>
+        </div>
+
+        <div id="error-message">
+            <h2>加载失败</h2>
+            <p id="error-text">无法加载游戏，请检查您的浏览器是否支持 WebGL2。</p>
+            <button onclick="location.reload()">重试</button>
+        </div>
+
+        <div id="touch-hint">使用方向键或 WASD 移动，空格键射击</div>
+    </div>
+
+    <script type="module">
+        // 检查 WebGL 支持
+        function checkWebGL() {
+            const canvas = document.createElement('canvas');
+            const gl = canvas.getContext('webgl2');
+            if (!gl) {
+                showError('您的浏览器不支持 WebGL2，请使用最新版本的 Chrome、Firefox 或 Edge 浏览器。');
+                return false;
+            }
+            return true;
+        }
+
+        function showError(message) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error-message').style.display = 'flex';
+            document.getElementById('error-text').textContent = message;
+        }
+
+        function hideLoading() {
+            const loading = document.getElementById('loading');
+            loading.classList.add('hidden');
+            setTimeout(() => {
+                loading.style.display = 'none';
+            }, 500);
+        }
+
+        function updateProgress(percent) {
+            document.getElementById('progress-bar').style.width = percent + '%';
+        }
+
+        // 初始化
+        async function init() {
+            if (!checkWebGL()) return;
+
+            try {
+                updateProgress(10);
+
+                // 加载 WASM 模块
+                const wasm = await import('./shoot.js');
+                updateProgress(50);
+
+                // 初始化 WASM
+                await wasm.default();
+                updateProgress(100);
+
+                // 隐藏加载界面
+                setTimeout(hideLoading, 300);
+
+                // 设置全局函数供游戏调用
+                window.gameModule = wasm;
+
+            } catch (error) {
+                console.error('Failed to load game:', error);
+                showError('游戏加载失败: ' + error.message);
+            }
+        }
+
+        // 充值界面 JS 桥接
+        window.setupRechargeListeners = function() {
+            const submitBtn = document.getElementById('recharge-submit');
+            const cancelBtn = document.getElementById('recharge-cancel');
+            const usernameInput = document.getElementById('recharge-username');
+            const orderInput = document.getElementById('recharge-order');
+            const messageEl = document.getElementById('recharge-message');
+
+            function setMessage(msg, isError = true) {
+                if (!messageEl) return;
+                messageEl.textContent = msg || '';
+                messageEl.style.color = isError ? '#ff6b6b' : '#4ade80';
+            }
+
+            function validateUsername(u) {
+                if (!u) return '请输入用户名';
+                if (u.trim() !== u) return '用户名不能包含首尾空格';
+                if (u.length < 3 || u.length > 20) return '用户名长度需为 3-20 个字符';
+                if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(u)) return '用户名必须以字母开头，且仅包含字母、数字和下划线';
+                return null;
+            }
+
+            function validateOrderId(o) {
+                if (!o) return '请输入订单号';
+                if (o.trim() !== o) return '订单号不能包含首尾空格';
+                if (o.length > 64) return '订单号过长（最多 64 字符）';
+                if (!/^[A-Za-z0-9_-]+$/.test(o)) return '订单号只能包含字母、数字、- 和 _';
+                return null;
+            }
+
+            if (submitBtn) {
+                submitBtn.onclick = function() {
+                    const username = usernameInput ? usernameInput.value : '';
+                    const orderId = orderInput ? orderInput.value : '';
+
+                    const uErr = validateUsername(username);
+                    if (uErr) return setMessage(uErr, true);
+                    const oErr = validateOrderId(orderId);
+                    if (oErr) return setMessage(oErr, true);
+
+                    if (window.gameModule && window.gameModule.submit_recharge_form) {
+                        setMessage('正在提交…', false);
+                        window.gameModule.submit_recharge_form(username, orderId);
+                    } else {
+                        setMessage('游戏未就绪，请稍后重试', true);
+                    }
+                };
+            }
+
+            if (cancelBtn) {
+                cancelBtn.onclick = function() {
+                    const overlay = document.getElementById('recharge-overlay');
+                    if (overlay) {
+                        overlay.style.display = 'none';
+                    }
+                    if (window.gameModule && window.gameModule.cancel_recharge) {
+                        window.gameModule.cancel_recharge();
+                    }
+                };
+            }
+
+            // 回车提交（订单号输入框触发）
+            if (orderInput) {
+                orderInput.onkeypress = function(e) {
+                    if (e.key === 'Enter' && submitBtn) submitBtn.click();
+                };
+            }
+        };
+
+        // 观察 DOM 变化，自动设置充值监听器
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                mutation.addedNodes.forEach(function(node) {
+                    if (node.nodeType === 1) {
+                        const overlay = node.querySelector ? node.querySelector('#recharge-overlay') : null;
+                        if (overlay || (node.id === 'recharge-overlay')) {
+                            setTimeout(window.setupRechargeListeners, 100);
+                        }
+                    }
+                });
+            });
+        });
+
+        observer.observe(document.body, { childList: true, subtree: true });
+
+        // 防止页面滚动
+        document.addEventListener('touchmove', function(e) {
+            e.preventDefault();
+        }, { passive: false });
+
+        // 开始加载
+        init();
+    </script>
+</body>
+</html>

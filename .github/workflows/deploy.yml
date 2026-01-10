@@ -1,0 +1,102 @@
+name: Build and Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install wasm-bindgen-cli
+        run: cargo install wasm-bindgen-cli
+
+      - name: Install wasm-opt
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y binaryen
+
+      - name: Fetch font asset
+        run: |
+          mkdir -p assets
+          if [ ! -s assets/NotoSansCJKsc-Regular.otf ]; then
+            curl -L --fail --retry 3 --retry-delay 1 \
+              -o assets/NotoSansCJKsc-Regular.otf \
+              https://github.com/notofonts/noto-cjk/raw/refs/heads/main/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf
+          fi
+
+      - name: Build WASM
+        run: |
+          cargo build --release --target wasm32-unknown-unknown --no-default-features --features web
+
+      - name: Generate bindings
+        run: |
+          wasm-bindgen \
+            --out-dir dist \
+            --target web \
+            --no-typescript \
+            target/wasm32-unknown-unknown/release/shoot.wasm
+
+      - name: Optimize WASM
+        run: |
+          wasm-opt -Oz -o dist/shoot_bg.wasm dist/shoot_bg.wasm
+
+      - name: Copy web assets
+        run: |
+          cp web/index.html dist/
+          cp web/style.css dist/
+          cp -r assets dist/
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

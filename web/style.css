@@ -1,0 +1,225 @@
+/* 游戏专用样式 */
+
+/* 充值覆盖层样式 - 由 Rust 代码动态创建 */
+#recharge-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+#recharge-overlay .recharge-box {
+    background: #1a1a2e;
+    padding: 30px;
+    border-radius: 10px;
+    border: 2px solid #00d4ff;
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+}
+
+#recharge-overlay h2 {
+    color: #00d4ff;
+    margin-bottom: 20px;
+    font-size: 24px;
+}
+
+#recharge-overlay p {
+    color: #fff;
+    margin-bottom: 15px;
+    font-size: 14px;
+}
+
+#recharge-input {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    border: 2px solid #00d4ff;
+    border-radius: 5px;
+    background: #0a0a1a;
+    color: #fff;
+    margin-bottom: 15px;
+    box-sizing: border-box;
+    outline: none;
+    transition: border-color 0.3s;
+}
+
+#recharge-input:focus {
+    border-color: #00ffff;
+    box-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
+}
+
+#recharge-input::placeholder {
+    color: #666;
+}
+
+.recharge-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+#recharge-submit,
+#recharge-cancel {
+    padding: 12px 30px;
+    font-size: 16px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+#recharge-submit {
+    background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+    color: #000;
+}
+
+#recharge-submit:hover {
+    background: linear-gradient(135deg, #00ffff 0%, #00d4ff 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 212, 255, 0.3);
+}
+
+#recharge-cancel {
+    background: #333;
+    border: 1px solid #666;
+    color: #fff;
+}
+
+#recharge-cancel:hover {
+    background: #444;
+    border-color: #888;
+}
+
+#recharge-message {
+    margin-top: 15px;
+    min-height: 20px;
+    font-size: 14px;
+}
+
+#recharge-message.error {
+    color: #ff6b6b;
+}
+
+#recharge-message.success {
+    color: #4ade80;
+}
+
+/* 虚拟摇杆样式（移动端） */
+.virtual-joystick {
+    position: fixed;
+    bottom: 80px;
+    left: 30px;
+    width: 120px;
+    height: 120px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    display: none;
+    z-index: 500;
+}
+
+.virtual-joystick-knob {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 50px;
+    height: 50px;
+    background: rgba(0, 212, 255, 0.5);
+    border: 2px solid #00d4ff;
+    border-radius: 50%;
+}
+
+.virtual-button {
+    position: fixed;
+    bottom: 100px;
+    right: 50px;
+    width: 80px;
+    height: 80px;
+    background: rgba(255, 100, 100, 0.3);
+    border: 2px solid rgba(255, 100, 100, 0.6);
+    border-radius: 50%;
+    display: none;
+    z-index: 500;
+    justify-content: center;
+    align-items: center;
+    font-size: 24px;
+    color: #fff;
+}
+
+/* 移动端显示虚拟控制 */
+@media (pointer: coarse) {
+    .virtual-joystick,
+    .virtual-button {
+        display: flex;
+    }
+    
+    #touch-hint {
+        display: none;
+    }
+}
+
+/* 全屏按钮 */
+#fullscreen-btn {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    width: 40px;
+    height: 40px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 5px;
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+    transition: all 0.3s;
+}
+
+#fullscreen-btn:hover {
+    background: rgba(0, 212, 255, 0.3);
+    border-color: #00d4ff;
+}
+
+/* Canvas 聚焦样式 */
+#game-canvas:focus {
+    outline: none;
+}
+
+/* 动画 */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-pulse {
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.animate-slide-in {
+    animation: slideIn 0.3s ease-out;
+}
