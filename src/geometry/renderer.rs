@@ -27,19 +27,16 @@ pub struct ColorPulse {
 }
 
 /// 更新颜色动画
-fn update_geometry_colors(
-    time: Res<Time>,
-    mut query: Query<(&mut Shape, &mut ColorPulse)>,
-) {
+fn update_geometry_colors(time: Res<Time>, mut query: Query<(&mut Shape, &mut ColorPulse)>) {
     for (mut shape, mut pulse) in query.iter_mut() {
         pulse.time += time.delta_secs() * pulse.speed;
         let t = (pulse.time.sin() + 1.0) / 2.0;
-        
+
         let r = pulse.base_color.r + (pulse.pulse_color.r - pulse.base_color.r) * t;
         let g = pulse.base_color.g + (pulse.pulse_color.g - pulse.base_color.g) * t;
         let b = pulse.base_color.b + (pulse.pulse_color.b - pulse.base_color.b) * t;
         let a = pulse.base_color.a + (pulse.pulse_color.a - pulse.base_color.a) * t;
-        
+
         if let Some(fill) = shape.fill.as_mut() {
             fill.color = Color::srgba(r, g, b, a);
         }
@@ -52,11 +49,13 @@ pub fn spawn_geometry_entity(
     blueprint: &GeometryBlueprint,
     position: Vec3,
 ) -> Entity {
-    let parent = commands.spawn((
-        Transform::from_translation(position).with_scale(Vec3::splat(blueprint.scale)),
-        Visibility::default(),
-        GeometryData::new(blueprint.clone()),
-    )).id();
+    let parent = commands
+        .spawn((
+            Transform::from_translation(position).with_scale(Vec3::splat(blueprint.scale)),
+            Visibility::default(),
+            GeometryData::new(blueprint.clone()),
+        ))
+        .id();
 
     // 为每个形状生成子实体
     for shape in &blueprint.shapes {
@@ -70,18 +69,41 @@ pub fn spawn_geometry_entity(
 /// 生成单个形状实体
 fn spawn_shape(commands: &mut Commands, shape: &GeometryShape) -> Entity {
     match shape {
-        GeometryShape::Polygon { vertices, color, fill, stroke_width } => {
-            spawn_polygon(commands, vertices, *color, *fill, *stroke_width)
-        }
-        GeometryShape::Arc { center, radius, start_angle, end_angle, color, stroke_width } => {
-            spawn_arc(commands, *center, *radius, *start_angle, *end_angle, *color, *stroke_width)
-        }
-        GeometryShape::Circle { center, radius, color, fill, stroke_width } => {
-            spawn_circle(commands, *center, *radius, *color, *fill, *stroke_width)
-        }
-        GeometryShape::Line { start, end, color, stroke_width } => {
-            spawn_line(commands, *start, *end, *color, *stroke_width)
-        }
+        GeometryShape::Polygon {
+            vertices,
+            color,
+            fill,
+            stroke_width,
+        } => spawn_polygon(commands, vertices, *color, *fill, *stroke_width),
+        GeometryShape::Arc {
+            center,
+            radius,
+            start_angle,
+            end_angle,
+            color,
+            stroke_width,
+        } => spawn_arc(
+            commands,
+            *center,
+            *radius,
+            *start_angle,
+            *end_angle,
+            *color,
+            *stroke_width,
+        ),
+        GeometryShape::Circle {
+            center,
+            radius,
+            color,
+            fill,
+            stroke_width,
+        } => spawn_circle(commands, *center, *radius, *color, *fill, *stroke_width),
+        GeometryShape::Line {
+            start,
+            end,
+            color,
+            stroke_width,
+        } => spawn_line(commands, *start, *end, *color, *stroke_width),
     }
 }
 
@@ -103,10 +125,14 @@ fn spawn_polygon(
     let shape = if fill {
         builder.fill(Fill::color(Color::from(color))).build()
     } else {
-        builder.stroke(Stroke::new(Color::from(color), stroke_width)).build()
+        builder
+            .stroke(Stroke::new(Color::from(color), stroke_width))
+            .build()
     };
 
-    commands.spawn((shape, Transform::default(), Visibility::default())).id()
+    commands
+        .spawn((shape, Transform::default(), Visibility::default()))
+        .id()
 }
 
 /// 生成弧形
@@ -122,7 +148,7 @@ fn spawn_arc(
     // 使用多段线近似弧形
     let segments = 32;
     let angle_step = (end_angle - start_angle) / segments as f32;
-    
+
     let mut points = Vec::new();
     for i in 0..=segments {
         let angle = start_angle + angle_step * i as f32;
@@ -141,7 +167,9 @@ fn spawn_arc(
         .stroke(Stroke::new(Color::from(color), stroke_width))
         .build();
 
-    commands.spawn((shape, Transform::default(), Visibility::default())).id()
+    commands
+        .spawn((shape, Transform::default(), Visibility::default()))
+        .id()
 }
 
 /// 生成圆形
@@ -162,10 +190,14 @@ fn spawn_circle(
     let shape = if fill {
         builder.fill(Fill::color(Color::from(color))).build()
     } else {
-        builder.stroke(Stroke::new(Color::from(color), stroke_width)).build()
+        builder
+            .stroke(Stroke::new(Color::from(color), stroke_width))
+            .build()
     };
 
-    commands.spawn((shape, Transform::default(), Visibility::default())).id()
+    commands
+        .spawn((shape, Transform::default(), Visibility::default()))
+        .id()
 }
 
 /// 生成线段
@@ -182,22 +214,21 @@ fn spawn_line(
         .stroke(Stroke::new(Color::from(color), stroke_width))
         .build();
 
-    commands.spawn((shape, Transform::default(), Visibility::default())).id()
+    commands
+        .spawn((shape, Transform::default(), Visibility::default()))
+        .id()
 }
 
 /// 辅助函数：创建规则多边形顶点
 pub fn regular_polygon_vertices(sides: usize, radius: f32) -> Vec<Vec2D> {
     let mut vertices = Vec::with_capacity(sides);
     let angle_step = 2.0 * PI / sides as f32;
-    
+
     for i in 0..sides {
         let angle = angle_step * i as f32 - PI / 2.0; // 从顶部开始
-        vertices.push(Vec2D::new(
-            radius * angle.cos(),
-            radius * angle.sin(),
-        ));
+        vertices.push(Vec2D::new(radius * angle.cos(), radius * angle.sin()));
     }
-    
+
     vertices
 }
 
@@ -205,12 +236,16 @@ pub fn regular_polygon_vertices(sides: usize, radius: f32) -> Vec<Vec2D> {
 pub fn star_vertices(points: usize, outer_radius: f32, inner_radius: f32) -> Vec<Vec2D> {
     let mut vertices = Vec::with_capacity(points * 2);
     let angle_step = PI / points as f32;
-    
+
     for i in 0..(points * 2) {
         let angle = angle_step * i as f32 - PI / 2.0;
-        let r = if i % 2 == 0 { outer_radius } else { inner_radius };
+        let r = if i % 2 == 0 {
+            outer_radius
+        } else {
+            inner_radius
+        };
         vertices.push(Vec2D::new(r * angle.cos(), r * angle.sin()));
     }
-    
+
     vertices
 }

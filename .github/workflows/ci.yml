@@ -97,11 +97,21 @@ jobs:
       - name: Fetch font asset
         run: |
           mkdir -p assets
-          if [ ! -s assets/NotoSansCJKsc-Regular.otf ]; then
+          if [ ! -s assets/NotoSansCJKsc-Regular.full.otf ]; then
             curl -L --fail --retry 3 --retry-delay 1 \
-              -o assets/NotoSansCJKsc-Regular.otf \
+              -o assets/NotoSansCJKsc-Regular.full.otf \
               https://github.com/notofonts/noto-cjk/raw/refs/heads/main/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf
           fi
+
+      - name: Subset font (UI glyphs)
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install fonttools
+          python3 tools/subset_font.py \
+            --input assets/NotoSansCJKsc-Regular.full.otf \
+            --output assets/NotoSansCJKsc-Regular.otf \
+            --roots src \
+            --roots web
 
       - name: Build WASM
         run: cargo build --release --target wasm32-unknown-unknown --no-default-features --features web
@@ -120,6 +130,7 @@ jobs:
           cp web/index.html dist/
           cp web/style.css dist/
           cp -r assets dist/
+          rm -f dist/assets/NotoSansCJKsc-Regular.full.otf
 
       - name: Upload WASM artifact
         uses: actions/upload-artifact@v4

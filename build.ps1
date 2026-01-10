@@ -12,6 +12,7 @@ Write-Host "========================" -ForegroundColor Cyan
 
 $FontUrl = "https://github.com/notofonts/noto-cjk/raw/refs/heads/main/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf"
 $FontPath = Join-Path "assets" "NotoSansCJKsc-Regular.otf"
+$FontFullPath = Join-Path "assets" "NotoSansCJKsc-Regular.full.otf"
 
 function Test-Command($cmdname) {
     return [bool](Get-Command -Name $cmdname -ErrorAction SilentlyContinue)
@@ -24,34 +25,63 @@ function Ensure-Font {
 
     if (Test-Path $FontPath) {
         $info = Get-Item $FontPath
-        if ($info.Length -gt 0) { return }
+        # 如果已经是小体积子集字体，直接用；否则尝试重建子集
+        if ($info.Length -gt 0 -and $info.Length -le 6000000) { return }
+
+        if ((-not (Test-Path $FontFullPath)) -or ((Get-Item $FontFullPath).Length -le 0)) {
+            Copy-Item -Force $FontPath $FontFullPath
+        }
     }
 
-    Write-Host "📥 字体缺失，正在下载: $FontPath" -ForegroundColor Yellow
-    $tmp = "$FontPath.download"
+    if (-not (Test-Path $FontFullPath) -or ((Get-Item $FontFullPath).Length -le 0)) {
+        Write-Host "📥 字体缺失，正在下载: $FontFullPath" -ForegroundColor Yellow
+        $tmp = "$FontFullPath.download"
 
-    try {
-        Invoke-WebRequest -Uri $FontUrl -OutFile $tmp -UseBasicParsing
-    } catch {
-        Write-Host "错误: 字体下载失败: $($_.Exception.Message)" -ForegroundColor Red
-        Write-Host "请手动下载并放到 $FontPath" -ForegroundColor Red
-        exit 1
+        try {
+            Invoke-WebRequest -Uri $FontUrl -OutFile $tmp -UseBasicParsing
+        } catch {
+            Write-Host "错误: 字体下载失败: $($_.Exception.Message)" -ForegroundColor Red
+            Write-Host "请手动下载并放到 $FontFullPath" -ForegroundColor Red
+            exit 1
+        }
+
+        if (-not (Test-Path $tmp)) {
+            Write-Host "错误: 字体下载失败（未生成文件）" -ForegroundColor Red
+            exit 1
+        }
+
+        $len = (Get-Item $tmp).Length
+        if ($len -le 0) {
+            Remove-Item -Force $tmp -ErrorAction SilentlyContinue
+            Write-Host "错误: 字体下载失败（文件为空）" -ForegroundColor Red
+            exit 1
+        }
+
+        Move-Item -Force $tmp $FontFullPath
+        Write-Host "✓ 字体下载完成" -ForegroundColor Green
     }
 
-    if (-not (Test-Path $tmp)) {
-        Write-Host "错误: 字体下载失败（未生成文件）" -ForegroundColor Red
-        exit 1
+    # 尝试生成子集字体（没有 fontTools 就退化为直接复制）
+    if (Test-Command "python") {
+        try {
+            # 缺少 fontTools 时尝试安装（失败则回退）
+            $hasFontTools = $false
+            try { python -c "import fontTools.subset" | Out-Null; $hasFontTools = $true } catch { $hasFontTools = $false }
+            if (-not $hasFontTools) {
+                try { python -m pip install --user -q fonttools | Out-Null } catch {}
+            }
+            python tools/subset_font.py --input $FontFullPath --output $FontPath --roots "src" --roots "web" | Out-Null
+        } catch {
+            Copy-Item -Force $FontFullPath $FontPath
+        }
+    } else {
+        Copy-Item -Force $FontFullPath $FontPath
     }
 
-    $len = (Get-Item $tmp).Length
-    if ($len -le 0) {
-        Remove-Item -Force $tmp -ErrorAction SilentlyContinue
-        Write-Host "错误: 字体下载失败（文件为空）" -ForegroundColor Red
-        exit 1
+    if (Test-Path $FontPath) {
+        $len = (Get-Item $FontPath).Length
+        Write-Host ("✓ 字体就绪: {0} ({1} bytes)" -f $FontPath, $len) -ForegroundColor Green
     }
-
-    Move-Item -Force $tmp $FontPath
-    Write-Host "✓ 字体下载完成" -ForegroundColor Green
 }
 
 function Install-Deps {
@@ -112,6 +142,10 @@ function Build-Wasm {
     Copy-Item "web/index.html" -Destination "dist/"
     Copy-Item "web/style.css" -Destination "dist/"
     Copy-Item -Recurse "assets" -Destination "dist/" -Force
+    $fullInDist = Join-Path "dist" "assets" "NotoSansCJKsc-Regular.full.otf"
+    if (Test-Path $fullInDist) {
+        Remove-Item -Force $fullInDist
+    }
     
     Write-Host "✓ WASM 版本构建完成" -ForegroundColor Green
     Write-Host "输出目录: dist/" -ForegroundColor Blue

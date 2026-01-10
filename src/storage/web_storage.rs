@@ -86,19 +86,19 @@ fn auto_save(save_data: Res<SaveData>) {
 #[cfg(target_arch = "wasm32")]
 fn load_from_storage() -> Result<SaveData, String> {
     use wasm_bindgen::JsCast;
-    
+
     let window = web_sys::window().ok_or("No window")?;
     let storage = window
         .local_storage()
         .map_err(|_| "Failed to get localStorage")?
         .ok_or("No localStorage")?;
-    
+
     let key = format!("{}save", STORAGE_PREFIX);
     let data = storage
         .get_item(&key)
         .map_err(|_| "Failed to get item")?
         .ok_or("No saved data")?;
-    
+
     serde_json::from_str(&data).map_err(|e| format!("Parse error: {}", e))
 }
 
@@ -106,7 +106,7 @@ fn load_from_storage() -> Result<SaveData, String> {
 fn load_from_storage() -> Result<SaveData, String> {
     use std::fs;
     use std::path::PathBuf;
-    
+
     let path = get_save_path()?;
     let data = fs::read_to_string(path).map_err(|e| format!("Read error: {}", e))?;
     serde_json::from_str(&data).map_err(|e| format!("Parse error: {}", e))
@@ -120,10 +120,10 @@ fn save_to_storage(data: &SaveData) -> Result<(), String> {
         .local_storage()
         .map_err(|_| "Failed to get localStorage")?
         .ok_or("No localStorage")?;
-    
+
     let key = format!("{}save", STORAGE_PREFIX);
     let json = serde_json::to_string(data).map_err(|e| format!("Serialize error: {}", e))?;
-    
+
     storage
         .set_item(&key, &json)
         .map_err(|_| "Failed to set item".to_string())
@@ -132,15 +132,15 @@ fn save_to_storage(data: &SaveData) -> Result<(), String> {
 #[cfg(not(target_arch = "wasm32"))]
 fn save_to_storage(data: &SaveData) -> Result<(), String> {
     use std::fs;
-    
+
     let path = get_save_path()?;
     let json = serde_json::to_string_pretty(data).map_err(|e| format!("Serialize error: {}", e))?;
-    
+
     // 确保目录存在
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|e| format!("Dir error: {}", e))?;
     }
-    
+
     fs::write(path, json).map_err(|e| format!("Write error: {}", e))
 }
 
@@ -170,9 +170,11 @@ pub fn clear_save_data() -> Result<(), String> {
         .local_storage()
         .map_err(|_| "Failed to get localStorage")?
         .ok_or("No localStorage")?;
-    
+
     let key = format!("{}save", STORAGE_PREFIX);
-    storage.remove_item(&key).map_err(|_| "Failed to remove item".to_string())
+    storage
+        .remove_item(&key)
+        .map_err(|_| "Failed to remove item".to_string())
 }
 
 #[cfg(not(target_arch = "wasm32"))]

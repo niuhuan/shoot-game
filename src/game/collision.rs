@@ -11,13 +11,12 @@ pub struct CollisionPlugin;
 
 impl Plugin for CollisionPlugin {
     fn build(&self, app: &mut App) {
-        app.add_message::<CollisionEvent>()
-            .add_systems(
-                Update,
-                detect_collisions
-                    .run_if(in_state(GameState::Playing))
-                    .run_if(not_upgrading),
-            );
+        app.add_message::<CollisionEvent>().add_systems(
+            Update,
+            detect_collisions
+                .run_if(in_state(GameState::Playing))
+                .run_if(not_upgrading),
+        );
     }
 }
 
@@ -143,18 +142,19 @@ fn detect_collisions(
     mut collision_events: MessageWriter<CollisionEvent>,
 ) {
     let entities: Vec<_> = query.iter().collect();
-    
+
     for i in 0..entities.len() {
         for j in (i + 1)..entities.len() {
             let (entity_a, transform_a, collider_a) = entities[i];
             let (entity_b, transform_b, collider_b) = entities[j];
-            
+
             // 检查碰撞掩码
-            if !collider_a.mask.can_collide_with(collider_b.layer) 
-                && !collider_b.mask.can_collide_with(collider_a.layer) {
+            if !collider_a.mask.can_collide_with(collider_b.layer)
+                && !collider_b.mask.can_collide_with(collider_a.layer)
+            {
                 continue;
             }
-            
+
             // 检测碰撞
             if check_collision(
                 &transform_a.translation.truncate(),
@@ -190,10 +190,16 @@ fn check_collision(
         (CollisionShape::Rectangle { width, height }, CollisionShape::Circle { radius }) => {
             circle_rect_collision(*pos_b, *radius, *pos_a, *width, *height)
         }
-        (CollisionShape::Rectangle { width: w_a, height: h_a }, 
-         CollisionShape::Rectangle { width: w_b, height: h_b }) => {
-            rect_rect_collision(*pos_a, *w_a, *h_a, *pos_b, *w_b, *h_b)
-        }
+        (
+            CollisionShape::Rectangle {
+                width: w_a,
+                height: h_a,
+            },
+            CollisionShape::Rectangle {
+                width: w_b,
+                height: h_b,
+            },
+        ) => rect_rect_collision(*pos_a, *w_a, *h_a, *pos_b, *w_b, *h_b),
         // 多边形碰撞简化为外接圆
         (CollisionShape::Polygon { vertices: v_a }, CollisionShape::Polygon { vertices: v_b }) => {
             let r_a = polygon_bounding_radius(v_a);
@@ -236,28 +242,21 @@ fn circle_rect_collision(
 ) -> bool {
     let half_w = width / 2.0;
     let half_h = height / 2.0;
-    
+
     let closest_x = circle_pos.x.clamp(rect_pos.x - half_w, rect_pos.x + half_w);
     let closest_y = circle_pos.y.clamp(rect_pos.y - half_h, rect_pos.y + half_h);
-    
+
     let distance_sq = (circle_pos.x - closest_x).powi(2) + (circle_pos.y - closest_y).powi(2);
     distance_sq <= radius * radius
 }
 
 /// 矩形与矩形碰撞检测
-fn rect_rect_collision(
-    pos_a: Vec2,
-    w_a: f32,
-    h_a: f32,
-    pos_b: Vec2,
-    w_b: f32,
-    h_b: f32,
-) -> bool {
+fn rect_rect_collision(pos_a: Vec2, w_a: f32, h_a: f32, pos_b: Vec2, w_b: f32, h_b: f32) -> bool {
     let half_wa = w_a / 2.0;
     let half_ha = h_a / 2.0;
     let half_wb = w_b / 2.0;
     let half_hb = h_b / 2.0;
-    
+
     (pos_a.x - half_wa) < (pos_b.x + half_wb)
         && (pos_a.x + half_wa) > (pos_b.x - half_wb)
         && (pos_a.y - half_ha) < (pos_b.y + half_hb)

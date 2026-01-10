@@ -180,7 +180,7 @@ impl GeometryBlueprint {
                 // 主体三角形
                 GeometryShape::Polygon {
                     vertices: vec![
-                        Vec2D::new(0.0, 20.0),   // 顶点
+                        Vec2D::new(0.0, 20.0),    // 顶点
                         Vec2D::new(-15.0, -15.0), // 左下
                         Vec2D::new(15.0, -15.0),  // 右下
                     ],
@@ -259,10 +259,7 @@ impl GeometryBlueprint {
         let mut vertices = Vec::new();
         for i in 0..6 {
             let angle = (i as f32) * PI / 3.0 - PI / 2.0;
-            vertices.push(Vec2D::new(
-                radius * angle.cos(),
-                radius * angle.sin(),
-            ));
+            vertices.push(Vec2D::new(radius * angle.cos(), radius * angle.sin()));
         }
 
         Self {
@@ -291,15 +288,13 @@ impl GeometryBlueprint {
     pub fn default_bullet() -> Self {
         Self {
             name: "bullet".to_string(),
-            shapes: vec![
-                GeometryShape::Circle {
-                    center: Vec2D::ZERO,
-                    radius: 4.0,
-                    color: ShapeColor::YELLOW,
-                    fill: true,
-                    stroke_width: 1.0,
-                },
-            ],
+            shapes: vec![GeometryShape::Circle {
+                center: Vec2D::ZERO,
+                radius: 4.0,
+                color: ShapeColor::YELLOW,
+                fill: true,
+                stroke_width: 1.0,
+            }],
             collision: CollisionShape::Circle { radius: 4.0 },
             scale: 1.0,
         }
@@ -309,15 +304,13 @@ impl GeometryBlueprint {
     pub fn enemy_bullet() -> Self {
         Self {
             name: "enemy_bullet".to_string(),
-            shapes: vec![
-                GeometryShape::Circle {
-                    center: Vec2D::ZERO,
-                    radius: 5.0,
-                    color: ShapeColor::MAGENTA,
-                    fill: true,
-                    stroke_width: 1.0,
-                },
-            ],
+            shapes: vec![GeometryShape::Circle {
+                center: Vec2D::ZERO,
+                radius: 5.0,
+                color: ShapeColor::MAGENTA,
+                fill: true,
+                stroke_width: 1.0,
+            }],
             collision: CollisionShape::Circle { radius: 5.0 },
             scale: 1.0,
         }
@@ -327,16 +320,14 @@ impl GeometryBlueprint {
     pub fn default_shield() -> Self {
         Self {
             name: "shield".to_string(),
-            shapes: vec![
-                GeometryShape::Arc {
-                    center: Vec2D::ZERO,
-                    radius: 25.0,
-                    start_angle: -PI * 0.75,
-                    end_angle: PI * 0.75,
-                    color: ShapeColor::new(0.0, 0.8, 1.0, 0.6),
-                    stroke_width: 4.0,
-                },
-            ],
+            shapes: vec![GeometryShape::Arc {
+                center: Vec2D::ZERO,
+                radius: 25.0,
+                start_angle: -PI * 0.75,
+                end_angle: PI * 0.75,
+                color: ShapeColor::new(0.0, 0.8, 1.0, 0.6),
+                stroke_width: 4.0,
+            }],
             collision: CollisionShape::Circle { radius: 25.0 },
             scale: 1.0,
         }
@@ -347,23 +338,25 @@ impl GeometryBlueprint {
         let outer_radius = 12.0;
         let inner_radius = 6.0;
         let mut vertices = Vec::new();
-        
+
         for i in 0..10 {
             let angle = (i as f32) * PI / 5.0 - PI / 2.0;
-            let r = if i % 2 == 0 { outer_radius } else { inner_radius };
+            let r = if i % 2 == 0 {
+                outer_radius
+            } else {
+                inner_radius
+            };
             vertices.push(Vec2D::new(r * angle.cos(), r * angle.sin()));
         }
 
         Self {
             name: "power_up".to_string(),
-            shapes: vec![
-                GeometryShape::Polygon {
-                    vertices,
-                    color: ShapeColor::GREEN,
-                    fill: true,
-                    stroke_width: 2.0,
-                },
-            ],
+            shapes: vec![GeometryShape::Polygon {
+                vertices,
+                color: ShapeColor::GREEN,
+                fill: true,
+                stroke_width: 2.0,
+            }],
             collision: CollisionShape::Circle { radius: 12.0 },
             scale: 1.0,
         }

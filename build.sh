@@ -15,6 +15,7 @@ NC='\033[0m' # No Color
 
 FONT_URL="https://github.com/notofonts/noto-cjk/raw/refs/heads/main/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf"
 FONT_PATH="assets/NotoSansCJKsc-Regular.otf"
+FONT_FULL_PATH="assets/NotoSansCJKsc-Regular.full.otf"
 
 # 检查命令是否存在
 check_command() {
@@ -27,38 +28,67 @@ check_command() {
 # 确保字体存在（若缺失则下载）
 ensure_font() {
     mkdir -p assets
+    # 如果已经存在字体，但体积仍很大（通常表示是“完整字体”），尝试重建子集字体
     if [ -s "$FONT_PATH" ]; then
-        return 0
+        local size
+        size=$(wc -c <"$FONT_PATH" | tr -d ' ')
+        if [ "$size" -le 6000000 ]; then
+            return 0
+        fi
+        # 若没有 full 字体，则先把现有字体当作 full 保存下来
+        if [ ! -s "$FONT_FULL_PATH" ]; then
+            cp "$FONT_PATH" "$FONT_FULL_PATH"
+        fi
     fi
 
-    echo -e "${YELLOW}📥 字体缺失，正在下载: ${FONT_PATH}${NC}"
-    local tmp="${FONT_PATH}.download"
+    if [ ! -s "$FONT_FULL_PATH" ]; then
+        echo -e "${YELLOW}📥 字体缺失，正在下载: ${FONT_FULL_PATH}${NC}"
+        local tmp="${FONT_FULL_PATH}.download"
 
-    if command -v curl &> /dev/null; then
-        curl -L --fail --retry 3 --retry-delay 1 -o "$tmp" "$FONT_URL"
-    elif command -v wget &> /dev/null; then
-        wget -O "$tmp" "$FONT_URL"
-    elif command -v python3 &> /dev/null; then
-        python3 - <<PY
+        if command -v curl &> /dev/null; then
+            curl -L --fail --retry 3 --retry-delay 1 -o "$tmp" "$FONT_URL"
+        elif command -v wget &> /dev/null; then
+            wget -O "$tmp" "$FONT_URL"
+        elif command -v python3 &> /dev/null; then
+            python3 - <<PY
 import urllib.request
 url = "$FONT_URL"
 out = "$tmp"
 urllib.request.urlretrieve(url, out)
 PY
+        else
+            echo -e "${RED}错误: 无法下载字体（缺少 curl/wget/python3）${NC}"
+            echo -e "${RED}请手动下载并放到 ${FONT_FULL_PATH}${NC}"
+            exit 1
+        fi
+
+        if [ ! -s "$tmp" ]; then
+            echo -e "${RED}错误: 字体下载失败（文件为空）${NC}"
+            rm -f "$tmp"
+            exit 1
+        fi
+
+        mv "$tmp" "$FONT_FULL_PATH"
+        echo -e "${GREEN}✓ 字体下载完成${NC}"
+    fi
+
+    # 尝试生成子集字体（没有 fontTools 就退化为直接复制）
+    if command -v python3 &> /dev/null; then
+        echo -e "${BLUE}🔤 生成子集字体（仅包含 UI 用到的字符）...${NC}"
+        # 若缺少 fontTools，尝试用 pip 安装（失败则回退）
+        if ! python3 -c "import fontTools.subset" >/dev/null 2>&1; then
+            if python3 -m pip --version >/dev/null 2>&1; then
+                python3 -m pip install --user -q fonttools || true
+            fi
+        fi
+        python3 tools/subset_font.py --input "$FONT_FULL_PATH" --output "$FONT_PATH" --roots "src" --roots "web" || cp "$FONT_FULL_PATH" "$FONT_PATH"
     else
-        echo -e "${RED}错误: 无法下载字体（缺少 curl/wget/python3）${NC}"
-        echo -e "${RED}请手动下载并放到 ${FONT_PATH}${NC}"
-        exit 1
+        cp "$FONT_FULL_PATH" "$FONT_PATH"
     fi
 
-    if [ ! -s "$tmp" ]; then
-        echo -e "${RED}错误: 字体下载失败（文件为空）${NC}"
-        rm -f "$tmp"
-        exit 1
+    if [ -s "$FONT_PATH" ]; then
+        echo -e "${GREEN}✓ 字体就绪: $(ls -lh "$FONT_PATH" | awk '{print $5, $9}')${NC}"
     fi
-
-    mv "$tmp" "$FONT_PATH"
-    echo -e "${GREEN}✓ 字体下载完成${NC}"
 }
 
 # 安装依赖
@@ -120,6 +150,7 @@ build_wasm() {
     cp web/index.html dist/
     cp web/style.css dist/
     cp -r assets dist/
+    rm -f dist/assets/NotoSansCJKsc-Regular.full.otf
     
     echo -e "${GREEN}✓ WASM 版本构建完成${NC}"
     echo -e "${BLUE}输出目录: dist/${NC}"

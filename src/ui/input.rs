@@ -9,9 +9,9 @@ use bevy::ecs::hierarchy::ChildSpawnerCommands;
 use bevy::state::prelude::DespawnOnExit;
 
 use crate::game::GameState;
-use crate::storage::{RechargeEvent, RechargeState};
 #[cfg(not(target_arch = "wasm32"))]
 use crate::storage::RechargeField;
+use crate::storage::{RechargeEvent, RechargeState};
 
 /// 输入插件
 pub struct InputPlugin;

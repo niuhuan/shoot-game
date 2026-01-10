@@ -57,7 +57,7 @@ cargo run --release
 
 然后访问 http://localhost:4000
 
-> 注意：字体文件 `assets/NotoSansCJKsc-Regular.otf` 被 `.gitignore` 忽略；构建脚本会在本地缺失时自动从官方仓库下载。
+> 注意：字体文件 `assets/NotoSansCJKsc-Regular.otf` 被 `.gitignore` 忽略；构建脚本会在本地缺失时自动从官方仓库下载完整字体到 `assets/NotoSansCJKsc-Regular.full.otf`，并尝试根据 `src/ui` 实际使用到的文字生成子集字体输出到 `assets/NotoSansCJKsc-Regular.otf`（如本机未安装 `fontTools` 会退化为直接使用完整字体）。
 
 ## 📁 项目结构
 

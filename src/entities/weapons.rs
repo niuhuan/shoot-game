@@ -6,7 +6,9 @@ use rand::Rng;
 use std::f32::consts::PI;
 
 use crate::game::{Collider, CollisionLayer, CollisionMask, GameConfig};
-use crate::geometry::{spawn_geometry_entity, GeometryBlueprint, GeometryShape, ShapeColor, Vec2D, CollisionShape};
+use crate::geometry::{
+    spawn_geometry_entity, CollisionShape, GeometryBlueprint, GeometryShape, ShapeColor, Vec2D,
+};
 
 /// 武器类型枚举
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -72,9 +74,9 @@ impl WeaponType {
 #[derive(Debug, Clone)]
 pub struct Weapon {
     pub weapon_type: WeaponType,
-    pub level: u32,        // 1-5
-    pub cooldown: f32,     // 冷却时间
-    pub timer: f32,        // 当前计时器
+    pub level: u32,    // 1-5
+    pub cooldown: f32, // 冷却时间
+    pub timer: f32,    // 当前计时器
 }
 
 impl Weapon {
@@ -97,7 +99,8 @@ impl Weapon {
         if self.level < 5 {
             self.level += 1;
             // 升级减少冷却时间
-            self.cooldown = self.weapon_type.base_cooldown() * (1.0 - 0.1 * (self.level - 1) as f32);
+            self.cooldown =
+                self.weapon_type.base_cooldown() * (1.0 - 0.1 * (self.level - 1) as f32);
         }
     }
 }
@@ -108,11 +111,11 @@ impl WeaponType {
         match self {
             // 霰弹枪/跟踪弹：射速与默认子弹接近
             WeaponType::Shotgun => 0.15,
-            WeaponType::Rocket => 1.2,
-            WeaponType::Laser => 0.3,
+            WeaponType::Rocket => 0.6, // 导弹发射速度翻倍
+            WeaponType::Laser => 0.25,
             WeaponType::Homing => 0.15,
-            WeaponType::Lightning => 1.0,
-            WeaponType::Aura => 0.0,  // 被动
+            WeaponType::Lightning => 0.5,
+            WeaponType::Aura => 0.0, // 被动
             WeaponType::Beam => 2.0,
         }
     }
@@ -122,7 +125,7 @@ impl WeaponType {
 #[derive(Component, Default)]
 pub struct WeaponInventory {
     pub weapons: Vec<Weapon>,
-    pub has_default_bullet: bool,  // 是否还有默认子弹
+    pub has_default_bullet: bool, // 是否还有默认子弹
 }
 
 impl WeaponInventory {
@@ -155,7 +158,9 @@ impl WeaponInventory {
 
     /// 获取特定类型的武器（可变）
     pub fn get_weapon_mut(&mut self, weapon_type: WeaponType) -> Option<&mut Weapon> {
-        self.weapons.iter_mut().find(|w| w.weapon_type == weapon_type)
+        self.weapons
+            .iter_mut()
+            .find(|w| w.weapon_type == weapon_type)
     }
 
     /// 添加或升级武器
@@ -175,14 +180,14 @@ impl WeaponInventory {
     /// 获取可升级的武器列表（用于升级选择）
     pub fn get_upgradeable_weapons(&self) -> Vec<WeaponType> {
         let mut result = Vec::new();
-        
+
         // 已有但未满级的武器
         for weapon in &self.weapons {
             if !weapon.is_max_level() {
                 result.push(weapon.weapon_type);
             }
         }
-        
+
         // 还没有但可以获得的新武器
         if !self.is_full() {
             for wt in WeaponType::all() {
@@ -191,7 +196,7 @@ impl WeaponInventory {
                 }
             }
         }
-        
+
         result
     }
 }
@@ -310,7 +315,8 @@ pub fn spawn_rocket_explosion_particles(
             scale: 1.0,
         };
 
-        let entity = spawn_geometry_entity(commands, &blueprint, position + Vec3::new(0.0, 0.0, 50.0));
+        let entity =
+            spawn_geometry_entity(commands, &blueprint, position + Vec3::new(0.0, 0.0, 50.0));
         commands.entity(entity).insert(WeaponBullet {
             weapon_type: WeaponType::Rocket,
             damage: 0,
@@ -331,16 +337,11 @@ pub struct LightningCast {
 // ========== 生成武器子弹 ==========
 
 /// 生成霰弹枪子弹
-pub fn spawn_shotgun_pellets(
-    commands: &mut Commands,
-    position: Vec3,
-    level: u32,
-    speed: f32,
-) {
+pub fn spawn_shotgun_pellets(commands: &mut Commands, position: Vec3, level: u32, speed: f32) {
     // 霰弹枪：符合设定（lv1:2，lv5:10），并且角度更集中
     let pellet_count = 2 + (level - 1) * 2; // lv1: 2, lv5: 10
     let spread_angle = PI / 18.0; // 总扩散约 20°（更像“散射”而非“扇形扫射”）
-    
+
     for i in 0..pellet_count {
         let t = if pellet_count <= 1 {
             0.0
@@ -349,22 +350,20 @@ pub fn spawn_shotgun_pellets(
         };
         let angle = PI / 2.0 + spread_angle * (t - 0.5) * 2.0;
         let velocity = Vec2::new(angle.cos() * speed, angle.sin() * speed);
-        
+
         let blueprint = GeometryBlueprint {
             name: "shotgun_pellet".to_string(),
-            shapes: vec![
-                GeometryShape::Circle {
-                    center: Vec2D::ZERO,
-                    radius: 6.0,
-                    color: ShapeColor::new(0.8, 0.9, 1.0, 0.7),
-                    fill: false,
-                    stroke_width: 2.0,
-                },
-            ],
+            shapes: vec![GeometryShape::Circle {
+                center: Vec2D::ZERO,
+                radius: 6.0,
+                color: ShapeColor::new(0.8, 0.9, 1.0, 0.7),
+                fill: false,
+                stroke_width: 2.0,
+            }],
             collision: CollisionShape::Circle { radius: 6.0 },
             scale: 1.0,
         };
-        
+
         let entity = spawn_geometry_entity(commands, &blueprint, position);
         commands.entity(entity).insert((
             WeaponBullet {
@@ -373,7 +372,9 @@ pub fn spawn_shotgun_pellets(
                 velocity,
                 lifetime: 1.6,
             },
-            ShotgunPellet { spread_angle: angle },
+            ShotgunPellet {
+                spread_angle: angle,
+            },
             Collider::new(blueprint.collision.clone(), CollisionLayer::PlayerBullet)
                 .with_mask(CollisionMask::player_bullet_mask()),
         ));
@@ -388,38 +389,36 @@ pub fn spawn_rocket(
     target: Option<Entity>,
     speed: f32,
 ) {
-    let rocket_count = level;  // lv1: 1, lv5: 5
+    let rocket_count = level; // lv1: 1, lv5: 5
     let base_speed = speed * (1.0 + 0.1 * (level - 1) as f32);
-    
+
     for i in 0..rocket_count {
         let offset_x = if rocket_count > 1 {
             ((i as f32) - (rocket_count as f32 - 1.0) / 2.0) * 15.0
         } else {
             0.0
         };
-        
+
         // 初始先向上飞，update_rocket_bullets 会在第一帧初始化方向（如果有目标则直线朝向目标）
         let velocity = Vec2::new(0.0, base_speed);
-        
+
         let blueprint = GeometryBlueprint {
             name: "rocket".to_string(),
-            shapes: vec![
-                GeometryShape::Polygon {
-                    vertices: vec![
-                        Vec2D::new(0.0, 12.0),
-                        Vec2D::new(-6.0, -6.0),
-                        Vec2D::new(0.0, -3.0),
-                        Vec2D::new(6.0, -6.0),
-                    ],
-                    color: ShapeColor::new(1.0, 0.6, 0.2, 0.9),
-                    fill: true,
-                    stroke_width: 1.0,
-                },
-            ],
-            collision: CollisionShape::Circle { radius: 8.0 },
+            shapes: vec![GeometryShape::Polygon {
+                vertices: vec![
+                    Vec2D::new(0.0, 18.0),  // 12 * 1.5
+                    Vec2D::new(-9.0, -9.0), // -6 * 1.5, -6 * 1.5
+                    Vec2D::new(0.0, -4.5),  // -3 * 1.5
+                    Vec2D::new(9.0, -9.0),  // 6 * 1.5, -6 * 1.5
+                ],
+                color: ShapeColor::new(1.0, 0.6, 0.2, 0.9),
+                fill: true,
+                stroke_width: 1.0,
+            }],
+            collision: CollisionShape::Circle { radius: 12.0 }, // 8 * 1.5
             scale: 1.0,
         };
-        
+
         let pos = position + Vec3::new(offset_x, 0.0, 0.0);
         let entity = spawn_geometry_entity(commands, &blueprint, pos);
         commands.entity(entity).insert((
@@ -442,59 +441,55 @@ pub fn spawn_rocket(
 }
 
 /// 生成激光
-pub fn spawn_laser(
-    commands: &mut Commands,
-    position: Vec3,
-    level: u32,
-) {
+pub fn spawn_laser(commands: &mut Commands, position: Vec3, level: u32) {
     // 激光（L）：发射可移动的“长条”穿透弹，而不是瞬间删除的光束
-    let laser_count = 1 + (level - 1) / 2;  // lv1: 1, lv3: 2, lv5: 3
-    let spacing = 20.0;
-    let length = 140.0;
-    let width = 10.0 + level as f32 * 1.5;
-    let speed = 520.0;
-    
+    let laser_count = 1 + (level - 1) / 2; // lv1: 1, lv3: 2, lv5: 3
+    let spacing = 25.0;
+    let length = 200.0; // 加长激光
+    let width = 16.0 + level as f32 * 2.0; // 加宽激光
+    let speed = 600.0; // 加快速度
+
     for i in 0..laser_count {
         let offset_x = if laser_count > 1 {
             ((i as f32) - (laser_count as f32 - 1.0) / 2.0) * spacing
         } else {
             0.0
         };
-        
+
         let blueprint = GeometryBlueprint {
             name: "laser".to_string(),
-            shapes: vec![
-                GeometryShape::Polygon {
-                    vertices: vec![
-                        Vec2D::new(-width * 0.5, -length * 0.5),
-                        Vec2D::new(width * 0.5, -length * 0.5),
-                        Vec2D::new(width * 0.5, length * 0.5),
-                        Vec2D::new(-width * 0.5, length * 0.5),
-                    ],
-                    color: ShapeColor::new(0.3, 1.0, 0.5, 0.55),
-                    fill: true,
-                    stroke_width: 1.0,
-                }
-            ],
-            collision: CollisionShape::Rectangle { width, height: length },
+            shapes: vec![GeometryShape::Polygon {
+                vertices: vec![
+                    Vec2D::new(-width * 0.5, -length * 0.5),
+                    Vec2D::new(width * 0.5, -length * 0.5),
+                    Vec2D::new(width * 0.5, length * 0.5),
+                    Vec2D::new(-width * 0.5, length * 0.5),
+                ],
+                color: ShapeColor::new(0.3, 1.0, 0.5, 0.55),
+                fill: true,
+                stroke_width: 1.0,
+            }],
+            collision: CollisionShape::Rectangle {
+                width,
+                height: length,
+            },
             scale: 1.0,
         };
-        
+
         let pos = position + Vec3::new(offset_x, 40.0 + length * 0.5, 0.0);
         let entity = spawn_geometry_entity(commands, &blueprint, pos);
         commands.entity(entity).insert((
             WeaponBullet {
                 weapon_type: WeaponType::Laser,
-                damage: 1 + (level as i32 / 2),
+                damage: 2 + level as i32, // 提升伤害
                 velocity: Vec2::new(0.0, speed),
                 lifetime: 2.0,
             },
-            Pierce { remaining: u32::MAX },
-            HitList::default(),
-            LaserBeam {
-                width,
-                length,
+            Pierce {
+                remaining: u32::MAX,
             },
+            HitList::default(),
+            LaserBeam { width, length },
             Collider::new(blueprint.collision.clone(), CollisionLayer::PlayerBullet)
                 .with_mask(CollisionMask::player_bullet_mask()),
         ));
@@ -509,35 +504,33 @@ pub fn spawn_homing_missile(
     target: Option<Entity>,
     speed: f32,
 ) {
-    let missile_count = level;  // lv1: 1, lv5: 5
-    
+    let missile_count = level; // lv1: 1, lv5: 5
+
     for i in 0..missile_count {
         let offset_x = if missile_count > 1 {
             ((i as f32) - (missile_count as f32 - 1.0) / 2.0) * 12.0
         } else {
             0.0
         };
-        
+
         let velocity = Vec2::new(0.0, speed);
-        
+
         let blueprint = GeometryBlueprint {
             name: "homing_missile".to_string(),
-            shapes: vec![
-                GeometryShape::Polygon {
-                    vertices: vec![
-                        Vec2D::new(0.0, 6.0),
-                        Vec2D::new(-3.0, -3.0),
-                        Vec2D::new(3.0, -3.0),
-                    ],
-                    color: ShapeColor::new(0.5, 0.8, 1.0, 0.9),
-                    fill: true,
-                    stroke_width: 1.0,
-                },
-            ],
+            shapes: vec![GeometryShape::Polygon {
+                vertices: vec![
+                    Vec2D::new(0.0, 6.0),
+                    Vec2D::new(-3.0, -3.0),
+                    Vec2D::new(3.0, -3.0),
+                ],
+                color: ShapeColor::new(0.5, 0.8, 1.0, 0.9),
+                fill: true,
+                stroke_width: 1.0,
+            }],
             collision: CollisionShape::Circle { radius: 4.0 },
             scale: 1.0,
         };
-        
+
         let pos = position + Vec3::new(offset_x, 0.0, 0.0);
         let entity = spawn_geometry_entity(commands, &blueprint, pos);
         commands.entity(entity).insert((
@@ -576,48 +569,44 @@ pub fn spawn_lightning(
         .id();
 
     commands.entity(entity).insert(LightningCast {
-        jumps: 2 + level,     // lv1:3, lv5:7（包含第一跳）
-        range: (260.0 + 40.0 * level as f32).min(520.0),
-        damage: 2 + (level as i32 / 2),
+        jumps: 3 + level, // lv1:4, lv5:8（包含第一跳）
+        range: (280.0 + 50.0 * level as f32).min(600.0),
+        damage: 3 + level as i32, // 提升伤害
     });
 }
 
 /// 生成护身光球
-pub fn spawn_aura_orbs(
-    commands: &mut Commands,
-    player_entity: Entity,
-    level: u32,
-) {
-    let orb_count = 2 + level;  // lv1: 3, lv5: 7
+pub fn spawn_aura_orbs(commands: &mut Commands, player_entity: Entity, level: u32) {
+    let orb_count = 2 + level; // lv1: 3, lv5: 7
     let orbit_radius = 40.0;
-    
+
     for i in 0..orb_count {
         let angle = (i as f32 / orb_count as f32) * 2.0 * PI;
-        
+
         let blueprint = GeometryBlueprint {
             name: "aura_orb".to_string(),
-            shapes: vec![
-                GeometryShape::Circle {
-                    center: Vec2D::ZERO,
-                    radius: 8.0,
-                    color: ShapeColor::new(0.9, 0.9, 0.3, 0.6),
-                    fill: true,
-                    stroke_width: 1.0,
-                },
-            ],
+            shapes: vec![GeometryShape::Circle {
+                center: Vec2D::ZERO,
+                radius: 8.0,
+                color: ShapeColor::new(0.9, 0.9, 0.3, 0.6),
+                fill: true,
+                stroke_width: 1.0,
+            }],
             collision: CollisionShape::Circle { radius: 8.0 },
             scale: 1.0,
         };
-        
+
         let entity = spawn_geometry_entity(commands, &blueprint, Vec3::ZERO);
         commands.entity(entity).insert((
             WeaponBullet {
                 weapon_type: WeaponType::Aura,
                 damage: 1,
                 velocity: Vec2::ZERO,
-                lifetime: f32::MAX,  // 不会自动消失
+                lifetime: f32::MAX, // 不会自动消失
             },
-            Pierce { remaining: u32::MAX },
+            Pierce {
+                remaining: u32::MAX,
+            },
             HitList::default(),
             AuraOrb {
                 orbit_angle: angle,
@@ -625,12 +614,13 @@ pub fn spawn_aura_orbs(
                 orbit_radius,
             },
             AuraOwner(player_entity),
-            Collider::new(blueprint.collision.clone(), CollisionLayer::PlayerBullet)
-                .with_mask(CollisionMask {
+            Collider::new(blueprint.collision.clone(), CollisionLayer::PlayerBullet).with_mask(
+                CollisionMask {
                     // 允许与敌人子弹碰撞，实现“抵消子弹”
                     enemy_bullet: true,
                     ..CollisionMask::player_bullet_mask()
-                }),
+                },
+            ),
         ));
     }
 }
@@ -640,44 +630,41 @@ pub fn spawn_aura_orbs(
 pub struct AuraOwner(pub Entity);
 
 /// 生成光柱
-pub fn spawn_beam_wave(
-    commands: &mut Commands,
-    config: &GameConfig,
-    position: Vec3,
-    level: u32,
-) {
+pub fn spawn_beam_wave(commands: &mut Commands, config: &GameConfig, position: Vec3, level: u32) {
     // 能量波（C）：横向“拱桥”弧形，可穿透，从玩家位置发射出去
     // 目标宽度：半屏幕（≈ window_width / 2），半圆宽度为 2*radius，因此 radius = window_width / 4。
     let radius = config.window_width * 0.25;
     let stroke = 8.0 + 1.5 * level as f32;
     let speed = config.bullet_speed * 0.9;
-    
+
     let blueprint = GeometryBlueprint {
         name: "crescent_wave".to_string(),
-        shapes: vec![
-            GeometryShape::Arc {
-                center: Vec2D::ZERO,
-                radius,
-                // 上半弧：像“拱桥”横跨屏幕
-                start_angle: 0.0,
-                end_angle: PI,
-                color: ShapeColor::new(0.85, 0.55, 1.0, 0.65),
-                stroke_width: stroke,
-            },
-        ],
-        collision: CollisionShape::Circle { radius: radius + stroke * 0.5 },
+        shapes: vec![GeometryShape::Arc {
+            center: Vec2D::ZERO,
+            radius,
+            // 上半弧：像“拱桥”横跨屏幕
+            start_angle: 0.0,
+            end_angle: PI,
+            color: ShapeColor::new(0.85, 0.55, 1.0, 0.65),
+            stroke_width: stroke,
+        }],
+        collision: CollisionShape::Circle {
+            radius: radius + stroke * 0.5,
+        },
         scale: 1.0,
     };
-    
+
     let entity = spawn_geometry_entity(commands, &blueprint, position + Vec3::new(0.0, 40.0, 0.0));
     commands.entity(entity).insert((
         WeaponBullet {
             weapon_type: WeaponType::Beam,
-            damage: 2 + level as i32,
+            damage: 4 + level as i32 * 2, // 伤害翻倍
             velocity: Vec2::new(0.0, speed),
             lifetime: 2.0,
         },
-        Pierce { remaining: u32::MAX },
+        Pierce {
+            remaining: u32::MAX,
+        },
         HitList::default(),
         BeamWave {
             progress: 0.0,
@@ -689,14 +676,10 @@ pub fn spawn_beam_wave(
 }
 
 /// 生成默认子弹（小圆点）
-pub fn spawn_default_bullet(
-    commands: &mut Commands,
-    position: Vec3,
-    speed: f32,
-) {
+pub fn spawn_default_bullet(commands: &mut Commands, position: Vec3, speed: f32) {
     let blueprint = GeometryBlueprint::default_bullet();
     let entity = spawn_geometry_entity(commands, &blueprint, position);
-    
+
     commands.entity(entity).insert((
         WeaponBullet {
             weapon_type: WeaponType::Shotgun, // 默认类型

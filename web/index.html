@@ -216,36 +216,79 @@
             }, 500);
         }
 
-        function updateProgress(percent) {
-            document.getElementById('progress-bar').style.width = percent + '%';
-        }
+	        function updateProgress(percent) {
+	            document.getElementById('progress-bar').style.width = percent + '%';
+	        }
 
-        // 初始化
-        async function init() {
-            if (!checkWebGL()) return;
+	        async function fetchWithProgress(url, onProgress) {
+	            const res = await fetch(url);
+	            if (!res.ok) {
+	                throw new Error(`Failed to fetch ${url}: ${res.status} ${res.statusText}`);
+	            }
 
-            try {
-                updateProgress(10);
+	            const total = Number(res.headers.get('content-length') || '0');
+	            if (!res.body || !res.body.getReader) {
+	                const buf = new Uint8Array(await res.arrayBuffer());
+	                onProgress(1);
+	                return buf;
+	            }
 
-                // 加载 WASM 模块
-                const wasm = await import('./shoot.js');
-                updateProgress(50);
+	            const reader = res.body.getReader();
+	            const chunks = [];
+	            let received = 0;
 
-                // 初始化 WASM
-                await wasm.default();
-                updateProgress(100);
+	            while (true) {
+	                const { done, value } = await reader.read();
+	                if (done) break;
+	                chunks.push(value);
+	                received += value.byteLength;
+	                if (total > 0) onProgress(received / total);
+	            }
 
-                // 隐藏加载界面
-                setTimeout(hideLoading, 300);
+	            if (total <= 0) onProgress(1);
 
-                // 设置全局函数供游戏调用
-                window.gameModule = wasm;
+	            const out = new Uint8Array(received);
+	            let offset = 0;
+	            for (const chunk of chunks) {
+	                out.set(chunk, offset);
+	                offset += chunk.byteLength;
+	            }
+	            return out;
+	        }
 
-            } catch (error) {
-                console.error('Failed to load game:', error);
-                showError('游戏加载失败: ' + error.message);
-            }
-        }
+	        // 初始化
+	        async function init() {
+	            if (!checkWebGL()) return;
+
+	            try {
+	                updateProgress(2);
+
+	                // 加载 JS glue
+	                const wasm = await import('./shoot.js');
+	                updateProgress(5);
+
+	                // 以“真实下载进度”加载 wasm
+	                const wasmUrl = new URL('./shoot_bg.wasm', import.meta.url);
+	                const wasmBytes = await fetchWithProgress(wasmUrl, (p) => {
+	                    // 5% - 95% 映射为 wasm 下载进度
+	                    updateProgress(5 + p * 90);
+	                });
+
+	                // 初始化 WASM（会继续加载其它资源，先给满）
+	                await wasm.default(wasmBytes);
+	                updateProgress(100);
+
+	                // 隐藏加载界面
+	                setTimeout(hideLoading, 300);
+
+	                // 设置全局函数供游戏调用
+	                window.gameModule = wasm;
+
+	            } catch (error) {
+	                console.error('Failed to load game:', error);
+	                showError('游戏加载失败: ' + error.message);
+	            }
+	        }
 
         // 充值界面 JS 桥接
         window.setupRechargeListeners = function() {

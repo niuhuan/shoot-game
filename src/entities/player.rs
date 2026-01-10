@@ -4,11 +4,14 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use rand::Rng;
 
-use crate::game::{not_upgrading, Collider, CollisionEvent, CollisionLayer, CollisionMask, GameConfig, GameData, GameState};
+use crate::game::{
+    not_upgrading, Collider, CollisionEvent, CollisionLayer, CollisionMask, GameConfig, GameData,
+    GameState,
+};
 use crate::geometry::{spawn_geometry_entity, GeometryBlueprint};
 
-use super::weapons::*;
 use super::bullet::ShootCooldown;
+use super::weapons::*;
 use super::Enemy;
 
 /// 玩家插件
@@ -19,7 +22,9 @@ impl Plugin for PlayerPlugin {
         app.insert_resource(DragState::default())
             .insert_resource(AutoShootTimer::default())
             .add_systems(OnEnter(GameState::Playing), spawn_player)
-            .add_systems(OnExit(GameState::Playing), despawn_player)
+            .add_systems(OnEnter(GameState::Menu), despawn_player)
+            .add_systems(OnEnter(GameState::GameOver), despawn_player)
+            .add_systems(OnEnter(GameState::Recharge), despawn_player)
             .add_systems(
                 Update,
                 (
@@ -80,15 +85,17 @@ impl Default for AutoShootTimer {
 }
 
 /// 生成玩家
-fn spawn_player(
-    mut commands: Commands,
-    config: Res<GameConfig>,
-) {
+fn spawn_player(mut commands: Commands, config: Res<GameConfig>, existing: Query<Entity, With<Player>>) {
+    // 从 Paused -> Playing 恢复时，不重复生成玩家
+    if !existing.is_empty() {
+        return;
+    }
+
     let blueprint = GeometryBlueprint::default_player();
     let position = Vec3::new(0.0, -config.window_height / 3.0, 10.0);
-    
+
     let entity = spawn_geometry_entity(&mut commands, &blueprint, position);
-    
+
     commands.entity(entity).insert((
         Player {
             speed: config.player_speed,
@@ -102,7 +109,7 @@ fn spawn_player(
         },
         WeaponInventory::new(),
     ));
-    
+
     log::info!("Player spawned");
 }
 
@@ -138,22 +145,22 @@ fn player_touch_movement(
     let Ok(window) = window_query.single() else {
         return;
     };
-    
+
     let Ok(mut transform) = player_query.single_mut() else {
         return;
     };
-    
+
     // 处理触摸输入
     let mut current_position: Option<Vec2> = None;
     let mut is_touching = false;
-    
+
     for touch in touches.iter() {
         // Touch 对象直接访问 position，检查是否有活跃触摸
         current_position = Some(touch.position());
         is_touching = true;
-        break;  // 只使用第一个触摸点
+        break; // 只使用第一个触摸点
     }
-    
+
     // 处理鼠标输入
     if !is_touching {
         if mouse_button.pressed(MouseButton::Left) {
@@ -165,7 +172,7 @@ fn player_touch_movement(
             is_touching = false;
         }
     }
-    
+
     // 更新拖拽状态
     if is_touching {
         if let Some(current_pos) = current_position {
@@ -175,7 +182,7 @@ fn player_touch_movement(
                 current_pos.x - window_size.x / 2.0,
                 window_size.y / 2.0 - current_pos.y,
             );
-            
+
             if drag_state.dragging {
                 if let Some(last_pos) = drag_state.last_position {
                     // 计算差值并移动
@@ -188,7 +195,7 @@ fn player_touch_movement(
                     transform.translation.y += delta.y;
                 }
             }
-            
+
             drag_state.dragging = true;
             drag_state.last_position = Some(current_pos);
         }
@@ -196,7 +203,7 @@ fn player_touch_movement(
         drag_state.dragging = false;
         drag_state.last_position = None;
     }
-    
+
     // 限制在屏幕范围内
     let half_width = config.window_width / 2.0 - 30.0;
     let half_height = config.window_height / 2.0 - 30.0;
@@ -214,9 +221,9 @@ fn player_keyboard_movement(
     let Ok((mut transform, player)) = query.single_mut() else {
         return;
     };
-    
+
     let mut direction = Vec2::ZERO;
-    
+
     if keyboard.pressed(KeyCode::ArrowLeft) || keyboard.pressed(KeyCode::KeyA) {
         direction.x -= 1.0;
     }
@@ -229,17 +236,17 @@ fn player_keyboard_movement(
     if keyboard.pressed(KeyCode::ArrowDown) || keyboard.pressed(KeyCode::KeyS) {
         direction.y -= 1.0;
     }
-    
+
     if direction != Vec2::ZERO {
         direction = direction.normalize();
         let velocity = direction * player.speed * time.delta_secs();
         transform.translation.x += velocity.x;
         transform.translation.y += velocity.y;
-        
+
         // 限制在屏幕范围内
         let half_width = config.window_width / 2.0 - 30.0;
         let half_height = config.window_height / 2.0 - 30.0;
-        
+
         transform.translation.x = transform.translation.x.clamp(-half_width, half_width);
         transform.translation.y = transform.translation.y.clamp(-half_height, half_height);
     }
@@ -258,18 +265,18 @@ fn auto_shoot_weapons(
     let Ok((transform, mut inventory, mut cooldown)) = query.single_mut() else {
         return;
     };
-    
+
     let delta = time.delta_secs();
     auto_timer.timer += delta;
     cooldown.timer -= delta;
-    
+
     // 更新所有武器冷却
     for weapon in inventory.weapons.iter_mut() {
         weapon.timer -= delta;
     }
-    
+
     let player_pos = transform.translation;
-    
+
     // 如果没有武器，使用默认子弹
     if inventory.weapons.is_empty() || inventory.has_default_bullet {
         if cooldown.timer <= 0.0 {
@@ -281,7 +288,7 @@ fn auto_shoot_weapons(
             return;
         }
     }
-    
+
     // 预先计算一个“最近敌人”作为需要目标的武器参考
     let half_w = config.window_width * 0.5;
     let half_h = config.window_height * 0.5;
@@ -290,7 +297,11 @@ fn auto_shoot_weapons(
         // 只锁定屏幕内（并且在玩家前方）的敌人
         .filter(|(_, t)| {
             let p = t.translation;
-            p.x >= -half_w && p.x <= half_w && p.y >= -half_h && p.y <= half_h && p.y >= player_pos.y
+            p.x >= -half_w
+                && p.x <= half_w
+                && p.y >= -half_h
+                && p.y <= half_h
+                && p.y >= player_pos.y
         })
         .min_by(|(_, a), (_, b)| {
             let da = (a.translation - player_pos).length();
@@ -304,16 +315,33 @@ fn auto_shoot_weapons(
         if weapon.timer <= 0.0 {
             match weapon.weapon_type {
                 WeaponType::Shotgun => {
-                    spawn_shotgun_pellets(&mut commands, player_pos, weapon.level, config.bullet_speed);
+                    spawn_shotgun_pellets(
+                        &mut commands,
+                        player_pos,
+                        weapon.level,
+                        config.bullet_speed,
+                    );
                 }
                 WeaponType::Rocket => {
-                    spawn_rocket(&mut commands, player_pos, weapon.level, nearest_enemy, config.bullet_speed);
+                    spawn_rocket(
+                        &mut commands,
+                        player_pos,
+                        weapon.level,
+                        nearest_enemy,
+                        config.bullet_speed,
+                    );
                 }
                 WeaponType::Laser => {
                     spawn_laser(&mut commands, player_pos, weapon.level);
                 }
                 WeaponType::Homing => {
-                    spawn_homing_missile(&mut commands, player_pos, weapon.level, nearest_enemy, config.bullet_speed);
+                    spawn_homing_missile(
+                        &mut commands,
+                        player_pos,
+                        weapon.level,
+                        nearest_enemy,
+                        config.bullet_speed,
+                    );
                 }
                 WeaponType::Lightning => {
                     // 生成一次性“施法请求”，由 resolve_lightning_casts 解析并结算伤害
@@ -344,7 +372,7 @@ fn update_weapon_bullets(
     let delta = time.delta_secs();
     let half_height = config.window_height / 2.0 + 50.0;
     let half_width = config.window_width / 2.0 + 50.0;
-    
+
     for (entity, mut transform, mut bullet) in query.iter_mut() {
         // 更新生命周期
         bullet.lifetime -= delta;
@@ -352,15 +380,14 @@ fn update_weapon_bullets(
             commands.entity(entity).despawn();
             continue;
         }
-        
+
         // 移动子弹
         let velocity = bullet.velocity * delta;
         transform.translation.x += velocity.x;
         transform.translation.y += velocity.y;
-        
+
         // 边界检查
-        if transform.translation.x.abs() > half_width 
-            || transform.translation.y.abs() > half_height 
+        if transform.translation.x.abs() > half_width || transform.translation.y.abs() > half_height
         {
             commands.entity(entity).despawn();
         }
@@ -394,7 +421,11 @@ fn update_rocket_bullets(
                     .p0()
                     .get(target)
                     .ok()
-                    .map(|(_, t)| (t.translation - transform.translation).truncate().normalize_or_zero())
+                    .map(|(_, t)| {
+                        (t.translation - transform.translation)
+                            .truncate()
+                            .normalize_or_zero()
+                    })
                     .unwrap_or_else(|| {
                         // 没有目标时给一个随机前向角度
                         let angle = std::f32::consts::FRAC_PI_2 + rng.random_range(-0.4..0.4);
@@ -414,7 +445,8 @@ fn update_rocket_bullets(
         transform.translation.x += step.x;
         transform.translation.y += step.y;
 
-        let out_of_bounds = transform.translation.x.abs() > half_width || transform.translation.y.abs() > half_height;
+        let out_of_bounds = transform.translation.x.abs() > half_width
+            || transform.translation.y.abs() > half_height;
         let timed_out = bullet.lifetime <= 0.0;
 
         if out_of_bounds || timed_out {
@@ -441,7 +473,12 @@ fn update_rocket_bullets(
             }
             // 爆炸：发射很多小三角碎片
             let shard_count = ((rocket.explosion_radius / 4.0) as u32).clamp(10, 28);
-            spawn_rocket_explosion_particles(&mut commands, transform.translation, shard_count, rocket.speed);
+            spawn_rocket_explosion_particles(
+                &mut commands,
+                transform.translation,
+                shard_count,
+                rocket.speed,
+            );
             commands.entity(entity).despawn();
         }
     }
@@ -461,11 +498,13 @@ fn update_aura_orbs(
         }
         return;
     };
-    
+
     // 检查是否有护身光球武器
-    let aura_weapon = inventory.weapons.iter()
+    let aura_weapon = inventory
+        .weapons
+        .iter()
         .find(|w| w.weapon_type == WeaponType::Aura);
-    
+
     let Some(aura) = aura_weapon else {
         // 没有护身光球武器，销毁现有光球
         for (entity, _, _) in orb_query.iter() {
@@ -473,53 +512,54 @@ fn update_aura_orbs(
         }
         return;
     };
-    
+
     let level = aura.level;
     let orb_count = level as usize + 1; // 等级1有2个，等级5有6个
     let orbit_radius = 50.0 + level as f32 * 10.0;
     let orbit_speed = 3.0 + level as f32 * 0.5;
-    
+
     let player_pos = player_transform.translation;
     let delta = time.delta_secs();
-    
+
     // 更新现有光球
     let mut existing_count = 0;
     for (_, mut transform, mut orb) in orb_query.iter_mut() {
         orb.orbit_angle += orbit_speed * delta;
         orb.orbit_radius = orbit_radius;
-        
+
         let x = player_pos.x + orb.orbit_radius * orb.orbit_angle.cos();
         let y = player_pos.y + orb.orbit_radius * orb.orbit_angle.sin();
         transform.translation = Vec3::new(x, y, player_pos.z + 1.0);
         existing_count += 1;
     }
-    
+
     // 如果光球数量不够，生成新的
     if existing_count < orb_count {
         for i in existing_count..orb_count {
             let angle = (i as f32 / orb_count as f32) * std::f32::consts::TAU;
             // 需要玩家实体来生成光球
             // spawn_aura_orbs 需要 player_entity，我们直接在这里创建
-            use crate::geometry::{spawn_geometry_entity, GeometryBlueprint, GeometryShape, ShapeColor, Vec2D, CollisionShape};
+            use crate::geometry::{
+                spawn_geometry_entity, CollisionShape, GeometryBlueprint, GeometryShape,
+                ShapeColor, Vec2D,
+            };
             let blueprint = GeometryBlueprint {
                 name: "aura_orb".to_string(),
-                shapes: vec![
-                    GeometryShape::Circle {
-                        radius: 8.0,
-                        center: Vec2D::new(0.0, 0.0),
-                        color: ShapeColor::new(1.0, 0.9, 0.3, 0.8),
-                        fill: true,
-                        stroke_width: 2.0,
-                    },
-                ],
+                shapes: vec![GeometryShape::Circle {
+                    radius: 8.0,
+                    center: Vec2D::new(0.0, 0.0),
+                    color: ShapeColor::new(1.0, 0.9, 0.3, 0.8),
+                    fill: true,
+                    stroke_width: 2.0,
+                }],
                 collision: CollisionShape::Circle { radius: 8.0 },
                 scale: 1.0,
             };
-            
+
             let orb_x = player_pos.x + orbit_radius * angle.cos();
             let orb_y = player_pos.y + orbit_radius * angle.sin();
             let pos = Vec3::new(orb_x, orb_y, player_pos.z + 1.0);
-            
+
             let entity = spawn_geometry_entity(&mut commands, &blueprint, pos);
             commands.entity(entity).insert((
                 WeaponBullet {
@@ -528,18 +568,21 @@ fn update_aura_orbs(
                     velocity: Vec2::ZERO,
                     lifetime: f32::MAX,
                 },
-                Pierce { remaining: u32::MAX },
+                Pierce {
+                    remaining: u32::MAX,
+                },
                 HitList::default(),
                 AuraOrb {
                     orbit_angle: angle,
                     orbit_speed,
                     orbit_radius,
                 },
-                Collider::new(blueprint.collision.clone(), CollisionLayer::PlayerBullet)
-                    .with_mask(CollisionMask {
+                Collider::new(blueprint.collision.clone(), CollisionLayer::PlayerBullet).with_mask(
+                    CollisionMask {
                         enemy_bullet: true,
                         ..CollisionMask::player_bullet_mask()
-                    }),
+                    },
+                ),
             ));
         }
     }
@@ -553,18 +596,16 @@ fn update_homing_missiles(
     enemy_query: Query<&Transform, (With<Enemy>, Without<HomingMissile>)>,
 ) {
     let delta = time.delta_secs();
-    
+
     for (mut transform, mut bullet, homing) in missile_query.iter_mut() {
         // 找最近的敌人
         let missile_pos = transform.translation;
-        let closest_enemy = enemy_query.iter()
-            .map(|t| t.translation)
-            .min_by(|a, b| {
-                let da = (*a - missile_pos).length();
-                let db = (*b - missile_pos).length();
-                da.partial_cmp(&db).unwrap()
-            });
-        
+        let closest_enemy = enemy_query.iter().map(|t| t.translation).min_by(|a, b| {
+            let da = (*a - missile_pos).length();
+            let db = (*b - missile_pos).length();
+            da.partial_cmp(&db).unwrap()
+        });
+
         if let Some(target_pos) = closest_enemy {
             let direction = (target_pos - missile_pos).truncate().normalize_or_zero();
             let target_velocity = direction * homing.speed;
@@ -574,11 +615,17 @@ fn update_homing_missiles(
 
         // 强制保持速度，避免数值漂移导致“静止”
         let dir = bullet.velocity.normalize_or_zero();
-        bullet.velocity = if dir == Vec2::ZERO { Vec2::new(0.0, 1.0) * homing.speed } else { dir * homing.speed };
+        bullet.velocity = if dir == Vec2::ZERO {
+            Vec2::new(0.0, 1.0) * homing.speed
+        } else {
+            dir * homing.speed
+        };
 
         // 根据速度朝向旋转（只是视觉）
         if bullet.velocity != Vec2::ZERO {
-            transform.rotation = Quat::from_rotation_z(bullet.velocity.y.atan2(bullet.velocity.x) - std::f32::consts::FRAC_PI_2);
+            transform.rotation = Quat::from_rotation_z(
+                bullet.velocity.y.atan2(bullet.velocity.x) - std::f32::consts::FRAC_PI_2,
+            );
         }
     }
 }
@@ -587,10 +634,7 @@ fn update_homing_missiles(
 fn resolve_lightning_casts(
     mut commands: Commands,
     mut casts: Query<(Entity, &Transform, &LightningCast)>,
-    mut enemy_set: ParamSet<(
-        Query<(Entity, &Transform), With<Enemy>>,
-        Query<&mut Enemy>,
-    )>,
+    mut enemy_set: ParamSet<(Query<(Entity, &Transform), With<Enemy>>, Query<&mut Enemy>)>,
     mut game_data: ResMut<GameData>,
 ) {
     for (cast_entity, cast_transform, cast) in casts.iter_mut() {
@@ -638,7 +682,10 @@ fn resolve_lightning_casts(
 
         // 生成视觉效果（线段）
         if !segments.is_empty() {
-            use crate::geometry::{spawn_geometry_entity, GeometryBlueprint, GeometryShape, ShapeColor, Vec2D, CollisionShape};
+            use crate::geometry::{
+                spawn_geometry_entity, CollisionShape, GeometryBlueprint, GeometryShape,
+                ShapeColor, Vec2D,
+            };
             let shapes: Vec<GeometryShape> = segments
                 .iter()
                 .map(|(a, b)| GeometryShape::Line {
@@ -657,7 +704,9 @@ fn resolve_lightning_casts(
             };
 
             let fx_entity = spawn_geometry_entity(&mut commands, &blueprint, Vec3::ZERO);
-            commands.entity(fx_entity).insert(EffectLifetime { remaining: 0.12 });
+            commands
+                .entity(fx_entity)
+                .insert(EffectLifetime { remaining: 0.12 });
         }
 
         commands.entity(cast_entity).despawn();
@@ -672,12 +721,18 @@ fn handle_player_bullet_vs_enemy_bullet(
 ) {
     for event in collision_events.read() {
         let (player_bullet, enemy_bullet) = match (event.layer_a, event.layer_b) {
-            (CollisionLayer::PlayerBullet, CollisionLayer::EnemyBullet) => (event.entity_a, event.entity_b),
-            (CollisionLayer::EnemyBullet, CollisionLayer::PlayerBullet) => (event.entity_b, event.entity_a),
+            (CollisionLayer::PlayerBullet, CollisionLayer::EnemyBullet) => {
+                (event.entity_a, event.entity_b)
+            }
+            (CollisionLayer::EnemyBullet, CollisionLayer::PlayerBullet) => {
+                (event.entity_b, event.entity_a)
+            }
             _ => continue,
         };
 
-        let Ok(wb) = weapon_bullets.get(player_bullet) else { continue };
+        let Ok(wb) = weapon_bullets.get(player_bullet) else {
+            continue;
+        };
         if wb.weapon_type == WeaponType::Aura {
             commands.entity(enemy_bullet).despawn();
         }
@@ -717,33 +772,33 @@ fn player_collision_handler(
         } else {
             None
         };
-        
+
         let Some(player_entity) = player_entity else {
             continue;
         };
-        
+
         let Ok(mut player) = player_query.get_mut(player_entity) else {
             continue;
         };
-        
+
         // 如果玩家无敌，跳过
         if player.invincible {
             continue;
         }
-        
+
         // 确定另一个实体的类型
         let other_layer = if event.layer_a == CollisionLayer::Player {
             event.layer_b
         } else {
             event.layer_a
         };
-        
+
         let other_entity = if event.layer_a == CollisionLayer::Player {
             event.entity_b
         } else {
             event.entity_a
         };
-        
+
         match other_layer {
             CollisionLayer::Enemy | CollisionLayer::EnemyBullet => {
                 // 玩家受伤 - 先扣护盾，再扣血
@@ -756,12 +811,12 @@ fn player_collision_handler(
                     player.invincible_timer = 2.0; // 2秒无敌时间
                     log::info!("Player hit! Lives remaining: {}", game_data.lives);
                 }
-                
+
                 // 销毁敌人子弹
                 if other_layer == CollisionLayer::EnemyBullet {
                     commands.entity(other_entity).despawn();
                 }
-                
+
                 if game_data.lives == 0 {
                     next_state.set(GameState::GameOver);
                 }
@@ -773,8 +828,12 @@ fn player_collision_handler(
                 game_data.add_experience(exp_gain);
                 commands.entity(other_entity).despawn();
                 let exp_needed = GameData::exp_for_level(game_data.player_level);
-                log::info!("Power-up collected! Coins: {}, Exp: {}/{}", 
-                    game_data.coins, game_data.experience, exp_needed);
+                log::info!(
+                    "Power-up collected! Coins: {}, Exp: {}/{}",
+                    game_data.coins,
+                    game_data.experience,
+                    exp_needed
+                );
             }
             _ => {}
         }
@@ -790,15 +849,19 @@ fn update_invincibility(
     for (mut player, children) in query.iter_mut() {
         if player.invincible {
             player.invincible_timer -= time.delta_secs();
-            
+
             // 闪烁效果
             let visible = (player.invincible_timer * 10.0) as i32 % 2 == 0;
             for child in children.iter() {
                 if let Ok(mut visibility) = visibility_query.get_mut(child) {
-                    *visibility = if visible { Visibility::Visible } else { Visibility::Hidden };
+                    *visibility = if visible {
+                        Visibility::Visible
+                    } else {
+                        Visibility::Hidden
+                    };
                 }
             }
-            
+
             if player.invincible_timer <= 0.0 {
                 player.invincible = false;
                 // 确保可见

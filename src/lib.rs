@@ -1,18 +1,18 @@
 //! 几何射击游戏
 //! 一款基于 Bevy 的几何风格射击游戏
 
+pub mod entities;
 pub mod game;
 pub mod geometry;
-pub mod entities;
 pub mod storage;
 pub mod ui;
 
 use bevy::prelude::*;
 use bevy::window::WindowResolution;
 
+use entities::{BossPlugin, BulletPlugin, EnemyPlugin, PlayerPlugin, ShieldPlugin};
 use game::{CollisionPlugin, GameConfig, GameStatePlugin, ScrollPlugin};
 use geometry::GeometryRendererPlugin;
-use entities::{BulletPlugin, EnemyPlugin, PlayerPlugin, ShieldPlugin};
 use storage::{RechargePlugin, StoragePlugin};
 use ui::{HudPlugin, InputPlugin, MenuPlugin, UpgradePlugin};
 
@@ -33,6 +33,7 @@ impl Plugin for ShootGamePlugin {
             .add_plugins(EnemyPlugin)
             .add_plugins(BulletPlugin)
             .add_plugins(ShieldPlugin)
+            .add_plugins(BossPlugin)
             // 存储和网络
             .add_plugins(StoragePlugin)
             .add_plugins(RechargePlugin)
@@ -51,10 +52,7 @@ impl Plugin for ShootGamePlugin {
 }
 
 /// 初始化游戏
-fn setup_game(
-    mut commands: Commands,
-    config: Res<GameConfig>,
-) {
+fn setup_game(mut commands: Commands, config: Res<GameConfig>) {
     // 创建相机
     commands.spawn((
         Camera2d,
@@ -63,10 +61,10 @@ fn setup_game(
             ..default()
         },
     ));
-    
+
     // 创建背景网格
     game::spawn_background_grid(&mut commands, &config);
-    
+
     log::info!("Game initialized");
 }
 
@@ -77,7 +75,7 @@ fn transition_to_menu(
     mut elapsed: Local<f32>,
 ) {
     *elapsed += time.delta_secs();
-    
+
     // 等待一小段时间确保资源加载完成
     if *elapsed > 0.5 {
         next_state.set(game::GameState::Menu);
@@ -109,12 +107,12 @@ use wasm_bindgen::prelude::*;
 pub fn wasm_main() {
     // 设置 panic hook
     console_error_panic_hook::set_once();
-    
+
     // 设置日志
     console_log::init_with_level(log::Level::Info).expect("Failed to init logger");
-    
+
     log::info!("Starting WASM game...");
-    
+
     App::new()
         .add_plugins(
             DefaultPlugins
@@ -157,5 +155,6 @@ pub fn get_game_info() -> String {
     serde_json::json!({
         "version": env!("CARGO_PKG_VERSION"),
         "name": "Geometry Shooter"
-    }).to_string()
+    })
+    .to_string()
 }

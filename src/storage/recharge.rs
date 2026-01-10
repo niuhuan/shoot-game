@@ -2,7 +2,7 @@
 //! 处理充值相关的 HTTP 请求 + Web 端 HTML 覆盖层输入
 
 use bevy::prelude::*;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::game::GameState;
 
@@ -87,17 +87,13 @@ pub struct RechargeResultEvent {
 #[derive(Serialize)]
 struct RechargeRequest {
     username: String,
-    order_id: String,
-    timestamp: u64,
+    #[serde(rename = "orderNumber")]
+    order_number: String,
 }
 
-/// 充值响应数据
-#[derive(Deserialize)]
-struct RechargeResponse {
-    success: bool,
-    message: String,
-    coins: Option<u32>,
-}
+const RECHARGE_API_URL: &str =
+    "https://lnaxq5lypumytjsylhvwxh5x3e0brvjs.lambda-url.ap-northeast-2.on.aws/";
+const RECHARGE_SPONSOR_URL: &str = "https://ifdian.net/a/ImpactMaster";
 
 fn on_enter_recharge(mut state: ResMut<RechargeState>) {
     state.username.clear();
@@ -159,7 +155,7 @@ fn process_recharge_events(
             send_recharge_request(
                 event.username.clone(),
                 event.order_id.clone(),
-                "https://api.example.com/recharge",
+                RECHARGE_API_URL,
             );
         }
 
@@ -256,11 +252,7 @@ pub fn send_recharge_request(username: String, order_id: String, api_url: &str) 
     let url = api_url.to_string();
     spawn_local(async move {
         match perform_recharge_request(&username, &order_id, &url).await {
-            Ok(response) => enqueue_recharge_result(RechargeResultEvent {
-                success: response.success,
-                message: response.message,
-                coins_added: response.coins,
-            }),
+            Ok(result) => enqueue_recharge_result(result),
             Err(e) => enqueue_recharge_result(RechargeResultEvent {
                 success: false,
                 message: e,
@@ -275,18 +267,16 @@ async fn perform_recharge_request(
     username: &str,
     order_id: &str,
     url: &str,
-) -> Result<RechargeResponse, String> {
+) -> Result<RechargeResultEvent, String> {
     use wasm_bindgen::JsCast;
     use web_sys::{Request, RequestInit, RequestMode, Response};
 
     let request_data = RechargeRequest {
         username: username.to_string(),
-        order_id: order_id.to_string(),
-        timestamp: js_sys::Date::now() as u64,
+        order_number: order_id.to_string(),
     };
 
-    let body =
-        serde_json::to_string(&request_data).map_err(|e| format!("Serialize error: {e}"))?;
+    let body = serde_json::to_string(&request_data).map_err(|e| format!("Serialize error: {e}"))?;
 
     let mut opts = RequestInit::new();
     opts.set_method("POST");
@@ -312,15 +302,29 @@ async fn perform_recharge_request(
         .map_err(|_| "Text await failed")?;
 
     let text = text_value.as_string().ok_or("Response is not a string")?;
-    serde_json::from_str(&text).map_err(|e| format!("Deserialize error: {e}"))
+
+    // API 参考 crops: LikeScreen.dart（返回纯文本状态码）
+    // FAIL / DUPLICATE / SUCCESS / 其它 => 未知错误
+    let code = text.trim();
+    let (success, message) = match code {
+        "FAIL" => (false, "订单号无效".to_string()),
+        "DUPLICATE" => (false, "订单号已经使用过".to_string()),
+        "SUCCESS" => (true, "金币已经发放，请在游戏中查看".to_string()),
+        other => (false, format!("未知错误 {other}")),
+    };
+
+    Ok(RechargeResultEvent {
+        success,
+        message,
+        // 当前 API 未返回金币数量；按“成功即发放”处理
+        coins_added: None,
+    })
 }
 
 /// 发送充值请求 (Native - 模拟)
 #[cfg(not(target_arch = "wasm32"))]
 pub fn send_recharge_request(username: String, order_id: String, _api_url: &str) {
-    log::info!(
-        "Native recharge request (simulated): username={username}, order_id={order_id}"
-    );
+    log::info!("Native recharge request (simulated): username={username}, order_id={order_id}");
 }
 
 // ---- WASM：JS 桥接：submit/cancel & async result 回传 ----
@@ -328,11 +332,9 @@ pub fn send_recharge_request(username: String, order_id: String, _api_url: &str)
 #[cfg(target_arch = "wasm32")]
 #[derive(Debug, Clone)]
 pub enum JsRechargeCommand {
-    Submit {
-        username: String,
-        order_id: String,
-    },
+    Submit { username: String, order_id: String },
     Cancel,
+    OpenSponsor,
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -353,22 +355,33 @@ fn results_queue() -> &'static Mutex<VecDeque<RechargeResultEvent>> {
 
 #[cfg(target_arch = "wasm32")]
 pub fn enqueue_recharge_submit(username: String, order_id: String) {
-    let mut q = commands_queue().lock().expect("js recharge queue lock poisoned");
-    q.push_back(JsRechargeCommand::Submit {
-        username,
-        order_id,
-    });
+    let mut q = commands_queue()
+        .lock()
+        .expect("js recharge queue lock poisoned");
+    q.push_back(JsRechargeCommand::Submit { username, order_id });
 }
 
 #[cfg(target_arch = "wasm32")]
 pub fn enqueue_recharge_cancel() {
-    let mut q = commands_queue().lock().expect("js recharge queue lock poisoned");
+    let mut q = commands_queue()
+        .lock()
+        .expect("js recharge queue lock poisoned");
     q.push_back(JsRechargeCommand::Cancel);
 }
 
 #[cfg(target_arch = "wasm32")]
+pub fn enqueue_open_sponsor() {
+    let mut q = commands_queue()
+        .lock()
+        .expect("js recharge queue lock poisoned");
+    q.push_back(JsRechargeCommand::OpenSponsor);
+}
+
+#[cfg(target_arch = "wasm32")]
 fn enqueue_recharge_result(result: RechargeResultEvent) {
-    let mut q = results_queue().lock().expect("js recharge result queue lock poisoned");
+    let mut q = results_queue()
+        .lock()
+        .expect("js recharge result queue lock poisoned");
     q.push_back(result);
 }
 
@@ -378,23 +391,22 @@ fn drain_js_bridge_commands(
     mut state: ResMut<RechargeState>,
     mut events: MessageWriter<RechargeEvent>,
 ) {
-    let mut q = commands_queue().lock().expect("js recharge queue lock poisoned");
+    let mut q = commands_queue()
+        .lock()
+        .expect("js recharge queue lock poisoned");
     while let Some(cmd) = q.pop_front() {
         match cmd {
             JsRechargeCommand::Cancel => {
                 // 返回菜单：Menu UI 会在 OnEnter(Menu) 重建；并由 OnExit(Recharge) 关闭覆盖层
                 next_state.set(GameState::Menu);
             }
-            JsRechargeCommand::Submit {
-                username,
-                order_id,
-            } => {
+            JsRechargeCommand::OpenSponsor => {
+                open_new_tab(RECHARGE_SPONSOR_URL);
+            }
+            JsRechargeCommand::Submit { username, order_id } => {
                 state.username = username.clone();
                 state.order_id = order_id.clone();
-                events.write(RechargeEvent {
-                    username,
-                    order_id,
-                });
+                events.write(RechargeEvent { username, order_id });
             }
         }
     }
@@ -402,7 +414,9 @@ fn drain_js_bridge_commands(
 
 #[cfg(target_arch = "wasm32")]
 fn drain_recharge_results(mut writer: MessageWriter<RechargeResultEvent>) {
-    let mut q = results_queue().lock().expect("js recharge result queue lock poisoned");
+    let mut q = results_queue()
+        .lock()
+        .expect("js recharge result queue lock poisoned");
     while let Some(result) = q.pop_front() {
         writer.write(result);
     }
@@ -413,8 +427,14 @@ fn drain_recharge_results(mut writer: MessageWriter<RechargeResultEvent>) {
 /// 显示 HTML 输入覆盖层 (WASM)
 #[cfg(target_arch = "wasm32")]
 fn show_input_overlay() {
-    let Some(window) = web_sys::window() else { return };
-    let Some(document) = window.document() else { return };
+    use wasm_bindgen::JsCast;
+
+    let Some(window) = web_sys::window() else {
+        return;
+    };
+    let Some(document) = window.document() else {
+        return;
+    };
 
     if document.get_element_by_id("recharge-overlay").is_some() {
         if let Some(overlay) = document.get_element_by_id("recharge-overlay") {
@@ -423,7 +443,7 @@ fn show_input_overlay() {
         return;
     }
 
-    let overlay_html = r#"
+    let overlay_html = r##"
         <div id="recharge-overlay" style="
             position: fixed;
             top: 0;
@@ -448,8 +468,12 @@ fn show_input_overlay() {
                 <h2 style="color: #00d4ff; margin-bottom: 20px;">充值中心</h2>
                 <p style="color: #fff; margin-bottom: 10px;">请填写用户名与订单号</p>
                 <p style="color: #aaa; margin-bottom: 15px; font-size: 12px; line-height: 1.5;">
-                    提示：用户名 3-20 位、字母开头、仅允许字母/数字/下划线；订单号仅允许字母/数字/-/_，最多 64 位。
+                    提示：订单号来自赞助平台个人中心 -> 我的订单。每个订单号只能使用一次。
+                    请务必核实用户名无误（订单将绑定用户名，一旦操作无法撤销）。
                 </p>
+                <div style="margin-bottom: 12px;">
+                    <a id="recharge-sponsor-link" href="#" style="color:#00d4ff; text-decoration: underline; font-size: 14px;">打开赞助平台（新标签页）</a>
+                </div>
                 <input type="text" id="recharge-username" maxlength="20" style="
                     width: 100%;
                     padding: 10px;
@@ -495,7 +519,7 @@ fn show_input_overlay() {
                 <p id="recharge-message" style="color: #ff6b6b; margin-top: 15px; min-height: 20px;"></p>
             </div>
         </div>
-    "#;
+    "##;
 
     if let Ok(div) = document.create_element("div") {
         div.set_inner_html(overlay_html);
@@ -506,13 +530,28 @@ fn show_input_overlay() {
 
     // 让 web/index.html 里注册的监听器生效
     let _ = js_sys::eval("if(window.setupRechargeListeners){window.setupRechargeListeners();}");
+
+    // 绑定“新标签页打开赞助平台”
+    if let Some(link) = document.get_element_by_id("recharge-sponsor-link") {
+        let closure = wasm_bindgen::closure::Closure::wrap(Box::new(move |e: web_sys::Event| {
+            e.prevent_default();
+            enqueue_open_sponsor();
+        }) as Box<dyn FnMut(_)>);
+
+        let _ = link.add_event_listener_with_callback("click", closure.as_ref().unchecked_ref());
+        closure.forget();
+    }
 }
 
 /// 隐藏 HTML 输入覆盖层 (WASM)
 #[cfg(target_arch = "wasm32")]
 fn hide_input_overlay() {
-    let Some(window) = web_sys::window() else { return };
-    let Some(document) = window.document() else { return };
+    let Some(window) = web_sys::window() else {
+        return;
+    };
+    let Some(document) = window.document() else {
+        return;
+    };
     if let Some(overlay) = document.get_element_by_id("recharge-overlay") {
         let _ = overlay.set_attribute("style", "display: none;");
     }
@@ -523,12 +562,28 @@ fn hide_input_overlay() {
 pub fn set_recharge_message(message: &str, is_error: bool) {
     use wasm_bindgen::JsCast;
 
-    let Some(window) = web_sys::window() else { return };
-    let Some(document) = window.document() else { return };
-    let Some(elem) = document.get_element_by_id("recharge-message") else { return };
-    let Some(html) = elem.dyn_ref::<web_sys::HtmlElement>() else { return };
+    let Some(window) = web_sys::window() else {
+        return;
+    };
+    let Some(document) = window.document() else {
+        return;
+    };
+    let Some(elem) = document.get_element_by_id("recharge-message") else {
+        return;
+    };
+    let Some(html) = elem.dyn_ref::<web_sys::HtmlElement>() else {
+        return;
+    };
 
     html.set_inner_text(message);
     let color = if is_error { "#ff6b6b" } else { "#4ade80" };
     let _ = html.style().set_property("color", color);
+}
+
+#[cfg(target_arch = "wasm32")]
+fn open_new_tab(url: &str) {
+    let Some(window) = web_sys::window() else {
+        return;
+    };
+    let _ = window.open_with_url_and_target(url, "_blank");
 }

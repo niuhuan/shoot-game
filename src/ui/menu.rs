@@ -1,9 +1,10 @@
 //! 菜单 UI
 
-use bevy::prelude::*;
 use bevy::ecs::hierarchy::ChildSpawnerCommands;
+use bevy::prelude::*;
 use bevy::state::prelude::DespawnOnExit;
 
+use crate::game::GameData;
 use crate::game::GameState;
 use crate::storage::SaveData;
 
@@ -20,23 +21,16 @@ impl Plugin for MenuPlugin {
             .add_systems(OnExit(GameState::Paused), cleanup_pause_menu)
             .add_systems(
                 Update,
-                (
-                    menu_button_system,
-                    menu_keyboard_start,
-                ).run_if(in_state(GameState::Menu)),
+                (menu_button_system, menu_keyboard_start).run_if(in_state(GameState::Menu)),
             )
             .add_systems(
                 Update,
-                (
-                    game_over_button_system,
-                ).run_if(in_state(GameState::GameOver)),
+                (game_over_button_system,).run_if(in_state(GameState::GameOver)),
             )
             .add_systems(
                 Update,
-                (
-                    pause_button_system,
-                    crate::game::handle_unpause_input,
-                ).run_if(in_state(GameState::Paused)),
+                (pause_button_system, crate::game::handle_unpause_input)
+                    .run_if(in_state(GameState::Paused)),
             );
     }
 }
@@ -80,18 +74,14 @@ pub struct GameFonts {
 }
 
 /// 设置主菜单
-fn setup_menu(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    save_data: Res<SaveData>,
-) {
+fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>, save_data: Res<SaveData>) {
     log::info!("Setting up Menu UI");
     let font = asset_server.load("NotoSansCJKsc-Regular.otf");
-    
+
     commands.insert_resource(GameFonts {
         main_font: font.clone(),
     });
-    
+
     // 根节点
     commands
         .spawn((
@@ -122,7 +112,7 @@ fn setup_menu(
                     ..default()
                 },
             ));
-            
+
             // 最高分
             parent.spawn((
                 Text::new(format!("最高分: {}", save_data.high_score)),
@@ -137,7 +127,7 @@ fn setup_menu(
                     ..default()
                 },
             ));
-            
+
             // 金币
             parent.spawn((
                 Text::new(format!("金币: {}", save_data.total_coins)),
@@ -152,10 +142,10 @@ fn setup_menu(
                     ..default()
                 },
             ));
-            
+
             // 开始按钮
             spawn_button(parent, &font, "开始游戏", MenuButton::Start);
-            
+
             // 充值按钮
             spawn_button(parent, &font, "充值中心", MenuButton::Recharge);
         });
@@ -198,10 +188,7 @@ fn spawn_button<T: Component + Clone>(
 }
 
 /// 清理菜单
-fn cleanup_menu(
-    mut commands: Commands,
-    query: Query<Entity, With<MenuRoot>>,
-) {
+fn cleanup_menu(mut commands: Commands, query: Query<Entity, With<MenuRoot>>) {
     for entity in query.iter() {
         commands.entity(entity).despawn();
     }
@@ -214,6 +201,7 @@ fn menu_button_system(
         Changed<Interaction>,
     >,
     mut next_state: ResMut<NextState<GameState>>,
+    mut game_data: ResMut<GameData>,
 ) {
     for (interaction, button, mut bg_color) in interaction_query.iter_mut() {
         match *interaction {
@@ -222,6 +210,7 @@ fn menu_button_system(
                 match button {
                     MenuButton::Start => {
                         log::info!("Menu: start pressed");
+                        game_data.reset();
                         next_state.set(GameState::Playing);
                     }
                     MenuButton::Recharge => {
@@ -248,9 +237,11 @@ fn menu_button_system(
 fn menu_keyboard_start(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut next_state: ResMut<NextState<GameState>>,
+    mut game_data: ResMut<GameData>,
 ) {
     if keyboard.just_pressed(KeyCode::Enter) || keyboard.just_pressed(KeyCode::Space) {
         log::info!("Menu: keyboard start");
+        game_data.reset();
         next_state.set(GameState::Playing);
     }
 }
@@ -262,7 +253,7 @@ fn setup_game_over(
     game_data: Res<crate::game::GameData>,
 ) {
     let font = asset_server.load("NotoSansCJKsc-Regular.otf");
-    
+
     commands
         .spawn((
             Node {
@@ -291,7 +282,7 @@ fn setup_game_over(
                     ..default()
                 },
             ));
-            
+
             parent.spawn((
                 Text::new(format!("得分: {}", game_data.score)),
                 TextFont {
@@ -305,7 +296,7 @@ fn setup_game_over(
                     ..default()
                 },
             ));
-            
+
             parent.spawn((
                 Text::new(format!("最高分: {}", game_data.high_score)),
                 TextFont {
@@ -319,16 +310,13 @@ fn setup_game_over(
                     ..default()
                 },
             ));
-            
+
             spawn_button(parent, &font, "重新开始", GameOverButton::Restart);
             spawn_button(parent, &font, "返回菜单", GameOverButton::Menu);
         });
 }
 
-fn cleanup_game_over(
-    mut commands: Commands,
-    query: Query<Entity, With<GameOverRoot>>,
-) {
+fn cleanup_game_over(mut commands: Commands, query: Query<Entity, With<GameOverRoot>>) {
     for entity in query.iter() {
         commands.entity(entity).despawn();
     }
@@ -340,6 +328,7 @@ fn game_over_button_system(
         Changed<Interaction>,
     >,
     mut next_state: ResMut<NextState<GameState>>,
+    mut game_data: ResMut<GameData>,
 ) {
     for (interaction, button, mut bg_color) in interaction_query.iter_mut() {
         match *interaction {
@@ -347,6 +336,7 @@ fn game_over_button_system(
                 *bg_color = BackgroundColor(Color::srgb(0.0, 0.6, 0.8));
                 match button {
                     GameOverButton::Restart => {
+                        game_data.reset();
                         next_state.set(GameState::Playing);
                     }
                     GameOverButton::Menu => {
@@ -365,12 +355,9 @@ fn game_over_button_system(
 }
 
 /// 设置暂停菜单
-fn setup_pause_menu(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-) {
+fn setup_pause_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("NotoSansCJKsc-Regular.otf");
-    
+
     commands
         .spawn((
             Node {
@@ -399,16 +386,13 @@ fn setup_pause_menu(
                     ..default()
                 },
             ));
-            
+
             spawn_button(parent, &font, "继续游戏", PauseButton::Resume);
             spawn_button(parent, &font, "返回菜单", PauseButton::Menu);
         });
 }
 
-fn cleanup_pause_menu(
-    mut commands: Commands,
-    query: Query<Entity, With<PauseRoot>>,
-) {
+fn cleanup_pause_menu(mut commands: Commands, query: Query<Entity, With<PauseRoot>>) {
     for entity in query.iter() {
         commands.entity(entity).despawn();
     }

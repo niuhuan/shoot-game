@@ -9,9 +9,9 @@ fn main() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
         .format_timestamp(None)
         .init();
-    
+
     log::info!("Starting Geometry Shooter...");
-    
+
     App::new()
         .add_plugins(
             DefaultPlugins

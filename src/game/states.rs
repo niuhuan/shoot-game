@@ -93,7 +93,7 @@ impl GameData {
     /// 计算升级所需经验值（曲线公式）
     pub fn exp_for_level(level: u32) -> u32 {
         // 经验曲线：base * level^1.5
-        let base = 100.0;
+        let base = 1300.0; // 基础经验值
         (base * (level as f32).powf(1.5)) as u32
     }
 
@@ -104,7 +104,7 @@ impl GameData {
         if self.experience >= required {
             self.experience -= required;
             self.player_level += 1;
-            self.upgrading = true;  // 标记需要升级选择
+            self.upgrading = true; // 标记需要升级选择
             log::info!("Level up! Now level {}", self.player_level);
         }
     }
@@ -175,23 +175,14 @@ impl Plugin for GameStatePlugin {
         app.init_state::<GameState>()
             .insert_resource(GameData::new())
             .insert_resource(GameConfig::default())
-            .add_systems(OnEnter(GameState::Playing), on_enter_playing)
             .add_systems(OnExit(GameState::Playing), on_exit_playing)
             .add_systems(OnEnter(GameState::GameOver), on_enter_game_over)
             .add_systems(Update, log_state_transitions)
             .add_systems(
                 Update,
-                (
-                    update_game_time,
-                    handle_pause_input,
-                ).run_if(in_state(GameState::Playing)),
+                (update_game_time, handle_pause_input).run_if(in_state(GameState::Playing)),
             );
     }
-}
-
-fn on_enter_playing(mut game_data: ResMut<GameData>) {
-    game_data.reset();
-    log::info!("Game started!");
 }
 
 fn on_exit_playing() {
