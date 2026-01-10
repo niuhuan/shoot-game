@@ -275,7 +275,20 @@
 	                });
 
 	                // 初始化 WASM（会继续加载其它资源，先给满）
-	                await wasm.default(wasmBytes);
+	                // 支持新旧两种 wasm-bindgen API
+	                if (typeof wasm.default === 'function') {
+	                    try {
+	                        // 尝试新版本 API：使用对象参数
+	                        await wasm.default({ wasm: wasmBytes });
+	                    } catch (e) {
+	                        // 如果失败，尝试旧版本 API：直接传递 bytes
+	                        await wasm.default(wasmBytes);
+	                    }
+	                } else if (wasm.init) {
+	                    await wasm.init(wasmBytes);
+	                } else {
+	                    throw new Error('无法找到 wasm 初始化函数');
+	                }
 	                updateProgress(100);
 
 	                // 隐藏加载界面

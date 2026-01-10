@@ -145,6 +145,17 @@ build_wasm() {
         --no-typescript \
         target/wasm32-unknown-unknown/release/shoot.wasm
     
+    # 优化 WASM（如果 wasm-opt 可用）
+    if command -v wasm-opt &> /dev/null; then
+        echo -e "${BLUE}🔧 优化 WASM...${NC}"
+        # 避免某些 wasm-opt 版本对"原地覆写"导致的文件损坏
+        wasm-opt -Oz -o dist/shoot_bg.opt.wasm dist/shoot_bg.wasm
+        mv dist/shoot_bg.opt.wasm dist/shoot_bg.wasm
+    else
+        echo -e "${YELLOW}⚠ wasm-opt 未安装，跳过优化（文件会较大）${NC}"
+        echo -e "${YELLOW}  安装: brew install binaryen 或 apt install binaryen${NC}"
+    fi
+    
     # 复制 web 资源
     echo -e "${BLUE}📁 复制 web 资源...${NC}"
     cp web/index.html dist/
