@@ -63,6 +63,9 @@ jobs:
 
       - name: Generate bindings
         run: |
+          # 确保 dist 目录存在且干净
+          rm -rf dist
+          mkdir -p dist
           wasm-bindgen \
             --out-dir dist \
             --target web \
@@ -71,6 +74,8 @@ jobs:
 
       - name: Optimize WASM
         run: |
+          # 显示 wasm-opt 版本以便调试
+          wasm-opt --version || true
           # Avoid in-place overwrite issues on some wasm-opt versions
           wasm-opt -Oz -o dist/shoot_bg.opt.wasm dist/shoot_bg.wasm
           mv dist/shoot_bg.opt.wasm dist/shoot_bg.wasm
