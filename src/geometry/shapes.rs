@@ -172,6 +172,134 @@ impl Default for GeometryBlueprint {
 }
 
 impl GeometryBlueprint {
+    /// 玩家战机：雷电（Raiden）Mk-I 风格
+    pub fn player_raiden_mk1() -> Self {
+        // 以“尖鼻、对称大翼、双发动机舱、机腹进气道”为核心特征。
+        Self {
+            name: "player_raiden_mk1".to_string(),
+            shapes: vec![
+                // 中央机身（长条多边形）
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(0.0, 28.0),
+                        Vec2D::new(-4.5, 20.0),
+                        Vec2D::new(-7.0, 8.0),
+                        Vec2D::new(-7.5, -10.0),
+                        Vec2D::new(-4.0, -30.0),
+                        Vec2D::new(4.0, -30.0),
+                        Vec2D::new(7.5, -10.0),
+                        Vec2D::new(7.0, 8.0),
+                        Vec2D::new(4.5, 20.0),
+                    ],
+                    color: ShapeColor::new(0.12, 0.55, 0.95, 1.0),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
+                // 机鼻高光
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(0.0, 34.0),
+                        Vec2D::new(-3.5, 23.0),
+                        Vec2D::new(3.5, 23.0),
+                    ],
+                    color: ShapeColor::new(0.80, 0.85, 0.95, 1.0),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
+                // 座舱
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(0.0, 18.0),
+                        Vec2D::new(-3.5, 12.0),
+                        Vec2D::new(0.0, 6.0),
+                        Vec2D::new(3.5, 12.0),
+                    ],
+                    color: ShapeColor::new(0.86, 0.95, 1.0, 0.9),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
+                // 主翼（大三角翼）
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        // 前窄后宽：更接近雷电街机的外形
+                        Vec2D::new(-22.0, 10.0),
+                        Vec2D::new(-11.0, 6.0),
+                        Vec2D::new(-7.0, -12.0),
+                        Vec2D::new(-44.0, -22.0),
+                    ],
+                    color: ShapeColor::new(0.08, 0.32, 0.65, 1.0),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(22.0, 10.0),
+                        Vec2D::new(11.0, 6.0),
+                        Vec2D::new(7.0, -12.0),
+                        Vec2D::new(44.0, -22.0),
+                    ],
+                    color: ShapeColor::new(0.08, 0.32, 0.65, 1.0),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
+                // 机腹进气道
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(-4.5, 6.0),
+                        Vec2D::new(4.5, 6.0),
+                        Vec2D::new(6.5, -6.0),
+                        Vec2D::new(-6.5, -6.0),
+                    ],
+                    color: ShapeColor::new(0.10, 0.12, 0.16, 1.0),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
+                // 双发动机舱（外侧短舱）
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(-18.0, -8.0),
+                        Vec2D::new(-12.0, -8.0),
+                        Vec2D::new(-10.5, -22.0),
+                        Vec2D::new(-14.5, -30.0),
+                        Vec2D::new(-20.0, -22.0),
+                    ],
+                    color: ShapeColor::new(0.10, 0.12, 0.16, 1.0),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(18.0, -8.0),
+                        Vec2D::new(12.0, -8.0),
+                        Vec2D::new(10.5, -22.0),
+                        Vec2D::new(14.5, -30.0),
+                        Vec2D::new(20.0, -22.0),
+                    ],
+                    color: ShapeColor::new(0.10, 0.12, 0.16, 1.0),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
+                // 喷口辉光（描边圆）
+                GeometryShape::Circle {
+                    center: Vec2D::new(-14.5, -34.0),
+                    radius: 3.8,
+                    color: ShapeColor::new(0.12, 0.95, 0.85, 0.9),
+                    fill: false,
+                    stroke_width: 2.5,
+                },
+                GeometryShape::Circle {
+                    center: Vec2D::new(14.5, -34.0),
+                    radius: 3.8,
+                    color: ShapeColor::new(0.12, 0.95, 0.85, 0.9),
+                    fill: false,
+                    stroke_width: 2.5,
+                },
+            ],
+            collision: CollisionShape::Circle { radius: 18.0 },
+            scale: 1.0,
+        }
+    }
+
     /// 创建默认玩家飞机蓝图
     pub fn default_player() -> Self {
         Self {
@@ -227,28 +355,83 @@ impl GeometryBlueprint {
     /// 创建默认敌人蓝图（菱形）
     pub fn default_enemy() -> Self {
         Self {
-            name: "enemy_diamond".to_string(),
+            name: "enemy_fighter".to_string(),
+            // 敌人更像“战机”：尖鼻 + 机身 + 翼面 + 发动机喷口
             shapes: vec![
+                // 机身
                 GeometryShape::Polygon {
                     vertices: vec![
-                        Vec2D::new(0.0, 15.0),
-                        Vec2D::new(-12.0, 0.0),
-                        Vec2D::new(0.0, -15.0),
-                        Vec2D::new(12.0, 0.0),
+                        Vec2D::new(0.0, 18.0),
+                        Vec2D::new(-6.0, 10.0),
+                        Vec2D::new(-9.0, -6.0),
+                        Vec2D::new(-5.0, -18.0),
+                        Vec2D::new(5.0, -18.0),
+                        Vec2D::new(9.0, -6.0),
+                        Vec2D::new(6.0, 10.0),
                     ],
-                    color: ShapeColor::RED,
+                    color: ShapeColor::new(0.95, 0.25, 0.35, 1.0),
                     fill: true,
                     stroke_width: 2.0,
                 },
+                // 机鼻高光
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(0.0, 22.0),
+                        Vec2D::new(-4.5, 14.0),
+                        Vec2D::new(4.5, 14.0),
+                    ],
+                    color: ShapeColor::new(0.90, 0.90, 0.95, 1.0),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
+                // 主翼（前窄后宽）
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(-14.0, 6.0),
+                        Vec2D::new(-8.0, 4.0),
+                        Vec2D::new(-6.0, -6.0),
+                        Vec2D::new(-22.0, -12.0),
+                    ],
+                    color: ShapeColor::new(0.55, 0.08, 0.14, 1.0),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(14.0, 6.0),
+                        Vec2D::new(8.0, 4.0),
+                        Vec2D::new(6.0, -6.0),
+                        Vec2D::new(22.0, -12.0),
+                    ],
+                    color: ShapeColor::new(0.55, 0.08, 0.14, 1.0),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
+                // 座舱/灯
                 GeometryShape::Circle {
-                    center: Vec2D::ZERO,
-                    radius: 4.0,
-                    color: ShapeColor::YELLOW,
+                    center: Vec2D::new(0.0, 8.0),
+                    radius: 3.2,
+                    color: ShapeColor::new(1.0, 0.95, 0.35, 1.0),
                     fill: true,
                     stroke_width: 1.0,
                 },
+                // 喷口辉光
+                GeometryShape::Circle {
+                    center: Vec2D::new(-4.5, -19.5),
+                    radius: 2.6,
+                    color: ShapeColor::new(0.2, 0.9, 1.0, 0.9),
+                    fill: false,
+                    stroke_width: 2.0,
+                },
+                GeometryShape::Circle {
+                    center: Vec2D::new(4.5, -19.5),
+                    radius: 2.6,
+                    color: ShapeColor::new(0.2, 0.9, 1.0, 0.9),
+                    fill: false,
+                    stroke_width: 2.0,
+                },
             ],
-            collision: CollisionShape::Circle { radius: 12.0 },
+            collision: CollisionShape::Circle { radius: 16.0 },
             scale: 1.0,
         }
     }
@@ -271,6 +454,29 @@ impl GeometryBlueprint {
                     fill: true,
                     stroke_width: 2.0,
                 },
+                // 让它更像“重装战机”：两侧挂舱 + 机鼻灯
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(-26.0, 8.0),
+                        Vec2D::new(-14.0, 6.0),
+                        Vec2D::new(-12.0, -12.0),
+                        Vec2D::new(-24.0, -14.0),
+                    ],
+                    color: ShapeColor::new(0.65, 0.35, 0.05, 1.0),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(26.0, 8.0),
+                        Vec2D::new(14.0, 6.0),
+                        Vec2D::new(12.0, -12.0),
+                        Vec2D::new(24.0, -14.0),
+                    ],
+                    color: ShapeColor::new(0.65, 0.35, 0.05, 1.0),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
                 GeometryShape::Circle {
                     center: Vec2D::ZERO,
                     radius: 6.0,
@@ -278,8 +484,15 @@ impl GeometryBlueprint {
                     fill: true,
                     stroke_width: 1.0,
                 },
+                GeometryShape::Circle {
+                    center: Vec2D::new(0.0, 10.0),
+                    radius: 3.0,
+                    color: ShapeColor::new(1.0, 1.0, 0.2, 1.0),
+                    fill: true,
+                    stroke_width: 1.0,
+                },
             ],
-            collision: CollisionShape::Circle { radius: 18.0 },
+            collision: CollisionShape::Circle { radius: 20.0 },
             scale: 1.0,
         }
     }
@@ -288,14 +501,28 @@ impl GeometryBlueprint {
     pub fn default_bullet() -> Self {
         Self {
             name: "bullet".to_string(),
-            shapes: vec![GeometryShape::Circle {
-                center: Vec2D::ZERO,
-                radius: 4.0,
-                color: ShapeColor::YELLOW,
-                fill: true,
-                stroke_width: 1.0,
-            }],
-            collision: CollisionShape::Circle { radius: 4.0 },
+            // 雷电风格：细长“针弹”（菱形 + 芯点）
+            shapes: vec![
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(0.0, 9.0),
+                        Vec2D::new(-2.2, 0.0),
+                        Vec2D::new(0.0, -9.0),
+                        Vec2D::new(2.2, 0.0),
+                    ],
+                    color: ShapeColor::new(0.85, 0.95, 1.0, 1.0),
+                    fill: true,
+                    stroke_width: 1.0,
+                },
+                GeometryShape::Circle {
+                    center: Vec2D::ZERO,
+                    radius: 1.6,
+                    color: ShapeColor::new(0.10, 0.85, 1.0, 1.0),
+                    fill: true,
+                    stroke_width: 1.0,
+                },
+            ],
+            collision: CollisionShape::Circle { radius: 6.0 },
             scale: 1.0,
         }
     }
@@ -304,14 +531,214 @@ impl GeometryBlueprint {
     pub fn enemy_bullet() -> Self {
         Self {
             name: "enemy_bullet".to_string(),
-            shapes: vec![GeometryShape::Circle {
-                center: Vec2D::ZERO,
-                radius: 5.0,
-                color: ShapeColor::MAGENTA,
-                fill: true,
-                stroke_width: 1.0,
-            }],
+            // 敌弹改为“街机小圆球”，避免三角形干扰视线
+            shapes: vec![
+                GeometryShape::Circle {
+                    center: Vec2D::ZERO,
+                    radius: 5.0,
+                    color: ShapeColor::new(1.0, 0.25, 0.85, 0.85),
+                    fill: true,
+                    stroke_width: 1.0,
+                },
+                GeometryShape::Circle {
+                    center: Vec2D::ZERO,
+                    radius: 2.0,
+                    color: ShapeColor::new(1.0, 0.9, 1.0, 0.55),
+                    fill: true,
+                    stroke_width: 1.0,
+                },
+            ],
             collision: CollisionShape::Circle { radius: 5.0 },
+            scale: 1.0,
+        }
+    }
+
+    /// 敌人子弹：圆环弹（街机味更重）
+    pub fn enemy_bullet_ring() -> Self {
+        Self {
+            name: "enemy_bullet_ring".to_string(),
+            shapes: vec![
+                GeometryShape::Circle {
+                    center: Vec2D::ZERO,
+                    radius: 6.5,
+                    color: ShapeColor::new(1.0, 0.25, 0.85, 0.9),
+                    fill: false,
+                    stroke_width: 2.5,
+                },
+                GeometryShape::Circle {
+                    center: Vec2D::ZERO,
+                    radius: 1.8,
+                    color: ShapeColor::new(1.0, 0.9, 1.0, 0.35),
+                    fill: true,
+                    stroke_width: 1.0,
+                },
+            ],
+            collision: CollisionShape::Circle { radius: 7.5 },
+            scale: 1.0,
+        }
+    }
+
+    /// 敌人子弹：红色“针弹”
+    pub fn enemy_bullet_needle() -> Self {
+        Self {
+            name: "enemy_bullet_needle".to_string(),
+            shapes: vec![
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(0.0, 10.0),
+                        Vec2D::new(-2.3, 0.0),
+                        Vec2D::new(0.0, -10.0),
+                        Vec2D::new(2.3, 0.0),
+                    ],
+                    color: ShapeColor::new(1.0, 0.25, 0.25, 0.95),
+                    fill: true,
+                    stroke_width: 1.0,
+                },
+            ],
+            collision: CollisionShape::Circle { radius: 6.5 },
+            scale: 1.0,
+        }
+    }
+
+    /// 敌人：小型无人机（Small）
+    pub fn raiden_enemy_drone_small() -> Self {
+        Self {
+            name: "enemy_drone_small".to_string(),
+            shapes: vec![
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(0.0, 14.0),
+                        Vec2D::new(-12.0, 4.0),
+                        Vec2D::new(-8.0, -14.0),
+                        Vec2D::new(8.0, -14.0),
+                        Vec2D::new(12.0, 4.0),
+                    ],
+                    color: ShapeColor::new(1.0, 0.25, 0.35, 1.0),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(-18.0, 6.0),
+                        Vec2D::new(-10.0, 2.0),
+                        Vec2D::new(-14.0, -6.0),
+                    ],
+                    color: ShapeColor::new(0.65, 0.08, 0.14, 1.0),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(18.0, 6.0),
+                        Vec2D::new(10.0, 2.0),
+                        Vec2D::new(14.0, -6.0),
+                    ],
+                    color: ShapeColor::new(0.65, 0.08, 0.14, 1.0),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
+                GeometryShape::Circle {
+                    center: Vec2D::new(0.0, 2.0),
+                    radius: 3.0,
+                    color: ShapeColor::new(1.0, 1.0, 0.2, 1.0),
+                    fill: true,
+                    stroke_width: 1.0,
+                },
+            ],
+            collision: CollisionShape::Circle { radius: 14.0 },
+            scale: 1.0,
+        }
+    }
+
+    /// 敌人：装甲机（重型 Hexagon 变体）
+    pub fn raiden_enemy_tank() -> Self {
+        let radius = 20.0;
+        let mut hull = Vec::with_capacity(6);
+        for i in 0..6 {
+            let angle = (i as f32) * PI / 3.0 - PI / 2.0;
+            hull.push(Vec2D::new(radius * angle.cos(), radius * angle.sin() * 1.15));
+        }
+        Self {
+            name: "enemy_tank".to_string(),
+            shapes: vec![
+                GeometryShape::Polygon {
+                    vertices: hull,
+                    color: ShapeColor::new(1.0, 0.6, 0.1, 1.0),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(-14.0, 8.0),
+                        Vec2D::new(14.0, 8.0),
+                        Vec2D::new(18.0, -8.0),
+                        Vec2D::new(-18.0, -8.0),
+                    ],
+                    color: ShapeColor::new(0.10, 0.12, 0.16, 1.0),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
+                GeometryShape::Circle {
+                    center: Vec2D::new(0.0, 0.0),
+                    radius: 6.0,
+                    color: ShapeColor::RED,
+                    fill: true,
+                    stroke_width: 1.0,
+                },
+            ],
+            collision: CollisionShape::Circle { radius: 22.0 },
+            scale: 1.0,
+        }
+    }
+
+    /// 导弹：雷电风格（用于 Rocket）
+    pub fn raiden_missile() -> Self {
+        Self {
+            name: "raiden_missile".to_string(),
+            shapes: vec![
+                // body
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(0.0, 22.0),
+                        Vec2D::new(-5.0, 14.0),
+                        Vec2D::new(-5.0, -18.0),
+                        Vec2D::new(5.0, -18.0),
+                        Vec2D::new(5.0, 14.0),
+                    ],
+                    color: ShapeColor::new(0.92, 0.20, 0.28, 1.0),
+                    fill: true,
+                    stroke_width: 1.0,
+                },
+                // tip highlight
+                GeometryShape::Polygon {
+                    vertices: vec![Vec2D::new(0.0, 28.0), Vec2D::new(-3.5, 18.0), Vec2D::new(3.5, 18.0)],
+                    color: ShapeColor::new(0.86, 0.88, 0.92, 1.0),
+                    fill: true,
+                    stroke_width: 1.0,
+                },
+                // fins
+                GeometryShape::Polygon {
+                    vertices: vec![Vec2D::new(-9.0, -4.0), Vec2D::new(-5.0, -6.0), Vec2D::new(-9.0, -14.0)],
+                    color: ShapeColor::new(0.55, 0.08, 0.14, 1.0),
+                    fill: true,
+                    stroke_width: 1.0,
+                },
+                GeometryShape::Polygon {
+                    vertices: vec![Vec2D::new(9.0, -4.0), Vec2D::new(5.0, -6.0), Vec2D::new(9.0, -14.0)],
+                    color: ShapeColor::new(0.55, 0.08, 0.14, 1.0),
+                    fill: true,
+                    stroke_width: 1.0,
+                },
+                // exhaust glow
+                GeometryShape::Circle {
+                    center: Vec2D::new(0.0, -22.0),
+                    radius: 5.0,
+                    color: ShapeColor::new(0.2, 0.9, 1.0, 0.85),
+                    fill: false,
+                    stroke_width: 3.0,
+                },
+            ],
+            collision: CollisionShape::Circle { radius: 12.0 },
             scale: 1.0,
         }
     }

@@ -12,7 +12,7 @@ use crate::geometry::{spawn_geometry_entity, GeometryBlueprint};
 
 use super::bullet::ShootCooldown;
 use super::weapons::*;
-use super::Enemy;
+use super::{Boss, BossState, Enemy};
 
 /// 玩家插件
 pub struct PlayerPlugin;
@@ -91,7 +91,7 @@ fn spawn_player(mut commands: Commands, config: Res<GameConfig>, existing: Query
         return;
     }
 
-    let blueprint = GeometryBlueprint::default_player();
+    let blueprint = GeometryBlueprint::player_raiden_mk1();
     let position = Vec3::new(0.0, -config.window_height / 3.0, 10.0);
 
     let entity = spawn_geometry_entity(&mut commands, &blueprint, position);
@@ -260,7 +260,7 @@ fn auto_shoot_weapons(
     mut auto_timer: ResMut<AutoShootTimer>,
     mut query: Query<(&Transform, &mut WeaponInventory, &mut ShootCooldown), With<Player>>,
     // 明确排除 Player，避免与玩家 Query 在 Transform 访问上产生潜在重叠（B0001）
-    enemy_query: Query<(Entity, &Transform), (With<Enemy>, Without<Player>)>,
+    enemy_query: Query<(Entity, &Transform), (Or<(With<Enemy>, With<Boss>)>, Without<Player>)>,
 ) {
     let Ok((transform, mut inventory, mut cooldown)) = query.single_mut() else {
         return;
@@ -466,8 +466,20 @@ fn update_rocket_bullets(
                     enemy.health -= bullet.damage;
                     if enemy.health <= 0 {
                         let score = enemy.score_value;
+                        let position = enemy_set
+                            .p0()
+                            .get(enemy_entity)
+                            .map(|(_, t)| t.translation)
+                            .unwrap_or(transform.translation);
                         commands.entity(enemy_entity).despawn();
                         game_data.add_score(score);
+                        
+                        // 2% 概率掉落金币
+                        let mut rng = rand::rng();
+                        if rng.random_bool(0.02) {
+                            use crate::entities::shield::{spawn_power_up, PowerUpType};
+                            spawn_power_up(&mut commands, position, PowerUpType::Coin);
+                        }
                     }
                 }
             }
@@ -593,7 +605,7 @@ fn update_homing_missiles(
     time: Res<Time>,
     // 明确排除 Enemy，避免与 enemy_query 在 Transform 访问上产生潜在重叠（B0001）
     mut missile_query: Query<(&mut Transform, &mut WeaponBullet, &HomingMissile), Without<Enemy>>,
-    enemy_query: Query<&Transform, (With<Enemy>, Without<HomingMissile>)>,
+    enemy_query: Query<&Transform, (Or<(With<Enemy>, With<Boss>)>, Without<HomingMissile>)>,
 ) {
     let delta = time.delta_secs();
 
@@ -635,6 +647,8 @@ fn resolve_lightning_casts(
     mut commands: Commands,
     mut casts: Query<(Entity, &Transform, &LightningCast)>,
     mut enemy_set: ParamSet<(Query<(Entity, &Transform), With<Enemy>>, Query<&mut Enemy>)>,
+    mut boss_set: ParamSet<(Query<(Entity, &Transform), With<Boss>>, Query<&mut Boss>)>,
+    mut boss_state: ResMut<BossState>,
     mut game_data: ResMut<GameData>,
 ) {
     for (cast_entity, cast_transform, cast) in casts.iter_mut() {
@@ -644,7 +658,7 @@ fn resolve_lightning_casts(
         let mut segments: Vec<(Vec2, Vec2)> = Vec::new();
 
         while remaining > 0 {
-            let next = enemy_set
+            let next_enemy = enemy_set
                 .p0()
                 .iter()
                 .filter(|(e, t)| {
@@ -658,6 +672,31 @@ fn resolve_lightning_casts(
                 })
                 .map(|(e, t)| (e, t.translation.truncate()));
 
+            let next_boss = boss_set
+                .p0()
+                .iter()
+                .filter(|(e, t)| {
+                    !hit.iter().any(|(he, _)| he == e)
+                        && t.translation.truncate().distance(current) <= cast.range
+                })
+                .min_by(|(_, a), (_, b)| {
+                    let da = a.translation.truncate().distance_squared(current);
+                    let db = b.translation.truncate().distance_squared(current);
+                    da.partial_cmp(&db).unwrap()
+                })
+                .map(|(e, t)| (e, t.translation.truncate()));
+
+            let next = match (next_enemy, next_boss) {
+                (None, None) => None,
+                (Some(v), None) => Some(v),
+                (None, Some(v)) => Some(v),
+                (Some(a), Some(b)) => {
+                    let da = a.1.distance_squared(current);
+                    let db = b.1.distance_squared(current);
+                    if da <= db { Some(a) } else { Some(b) }
+                }
+            };
+
             let Some((enemy_entity, enemy_pos)) = next else {
                 break;
             };
@@ -669,13 +708,32 @@ fn resolve_lightning_casts(
         }
 
         // 结算伤害
-        for (enemy_entity, _) in &hit {
+        for (enemy_entity, enemy_pos) in &hit {
             if let Ok(mut enemy) = enemy_set.p1().get_mut(*enemy_entity) {
                 enemy.health -= cast.damage;
                 if enemy.health <= 0 {
                     let score = enemy.score_value;
+                    let position = Vec3::new(enemy_pos.x, enemy_pos.y, 0.0);
                     commands.entity(*enemy_entity).despawn();
                     game_data.add_score(score);
+                    
+                    // 2% 概率掉落金币
+                    let mut rng = rand::rng();
+                    if rng.random_bool(0.02) {
+                        use crate::entities::shield::{spawn_power_up, PowerUpType};
+                        spawn_power_up(&mut commands, position, PowerUpType::Coin);
+                    }
+                }
+            } else if let Ok(mut boss) = boss_set.p1().get_mut(*enemy_entity) {
+                boss.health -= cast.damage;
+                boss_state.current_health = boss.health;
+                if boss.health <= 0 {
+                    let score = boss.score_value;
+                    commands.entity(*enemy_entity).despawn();
+                    game_data.add_score(score);
+                    boss_state.active = false;
+                    boss_state.current_health = 0;
+                    log::info!("Boss defeated! Score: {}", score);
                 }
             }
         }
@@ -762,6 +820,7 @@ fn player_collision_handler(
     mut game_data: ResMut<GameData>,
     mut next_state: ResMut<NextState<GameState>>,
     mut player_query: Query<&mut Player>,
+    power_up_query: Query<&crate::entities::shield::PowerUp>,
 ) {
     for event in collision_events.read() {
         // 检查是否涉及玩家
@@ -822,18 +881,43 @@ fn player_collision_handler(
                 }
             }
             CollisionLayer::PowerUp => {
-                // 拾取道具 - 增加经验值
-                let exp_gain = 10;
-                game_data.coins += 10;
-                game_data.add_experience(exp_gain);
+                let power_type = power_up_query
+                    .get(other_entity)
+                    .map(|p| p.power_type)
+                    .ok();
+
+                match power_type {
+                    Some(crate::entities::shield::PowerUpType::Coin) => {
+                        game_data.coins += 1;
+                        log::info!("Coin collected! Coins: {}", game_data.coins);
+                    }
+                    Some(crate::entities::shield::PowerUpType::Shield) => {
+                        game_data.restore_shield(1);
+                        log::info!(
+                            "Shield restored! Shield: {}/{}",
+                            game_data.shield,
+                            game_data.max_shield
+                        );
+                    }
+                    Some(crate::entities::shield::PowerUpType::ExtraLife) => {
+                        game_data.heal(1);
+                        log::info!(
+                            "Life restored! Lives: {}/{}",
+                            game_data.lives,
+                            game_data.max_lives
+                        );
+                    }
+                    Some(crate::entities::shield::PowerUpType::WeaponUpgrade) => {
+                        game_data.upgrading = true;
+                        log::info!("Weapon upgrade triggered");
+                    }
+                    None => {
+                        // 兼容旧版本：没有 PowerUp 组件也当作小收益
+                        game_data.coins += 1;
+                    }
+                }
+
                 commands.entity(other_entity).despawn();
-                let exp_needed = GameData::exp_for_level(game_data.player_level);
-                log::info!(
-                    "Power-up collected! Coins: {}, Exp: {}/{}",
-                    game_data.coins,
-                    game_data.experience,
-                    exp_needed
-                );
             }
             _ => {}
         }

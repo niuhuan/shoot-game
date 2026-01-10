@@ -402,22 +402,7 @@ pub fn spawn_rocket(
         // 初始先向上飞，update_rocket_bullets 会在第一帧初始化方向（如果有目标则直线朝向目标）
         let velocity = Vec2::new(0.0, base_speed);
 
-        let blueprint = GeometryBlueprint {
-            name: "rocket".to_string(),
-            shapes: vec![GeometryShape::Polygon {
-                vertices: vec![
-                    Vec2D::new(0.0, 18.0),  // 12 * 1.5
-                    Vec2D::new(-9.0, -9.0), // -6 * 1.5, -6 * 1.5
-                    Vec2D::new(0.0, -4.5),  // -3 * 1.5
-                    Vec2D::new(9.0, -9.0),  // 6 * 1.5, -6 * 1.5
-                ],
-                color: ShapeColor::new(1.0, 0.6, 0.2, 0.9),
-                fill: true,
-                stroke_width: 1.0,
-            }],
-            collision: CollisionShape::Circle { radius: 12.0 }, // 8 * 1.5
-            scale: 1.0,
-        };
+        let blueprint = GeometryBlueprint::raiden_missile();
 
         let pos = position + Vec3::new(offset_x, 0.0, 0.0);
         let entity = spawn_geometry_entity(commands, &blueprint, pos);
@@ -445,8 +430,9 @@ pub fn spawn_laser(commands: &mut Commands, position: Vec3, level: u32) {
     // 激光（L）：发射可移动的“长条”穿透弹，而不是瞬间删除的光束
     let laser_count = 1 + (level - 1) / 2; // lv1: 1, lv3: 2, lv5: 3
     let spacing = 25.0;
-    let length = 200.0; // 加长激光
-    let width = 16.0 + level as f32 * 2.0; // 加宽激光
+    let length = 210.0;
+    // 视觉上更细，避免遮挡视线；碰撞宽度也同步收窄
+    let width = 6.0 + level as f32 * 1.0; // lv1: 7, lv5: 11
     let speed = 600.0; // 加快速度
 
     for i in 0..laser_count {
@@ -456,19 +442,34 @@ pub fn spawn_laser(commands: &mut Commands, position: Vec3, level: u32) {
             0.0
         };
 
+        // 两层：外层淡光（更透明）+ 内层亮芯（更细）
+        let core_width = (width * 0.45).max(2.0);
         let blueprint = GeometryBlueprint {
             name: "laser".to_string(),
-            shapes: vec![GeometryShape::Polygon {
-                vertices: vec![
-                    Vec2D::new(-width * 0.5, -length * 0.5),
-                    Vec2D::new(width * 0.5, -length * 0.5),
-                    Vec2D::new(width * 0.5, length * 0.5),
-                    Vec2D::new(-width * 0.5, length * 0.5),
-                ],
-                color: ShapeColor::new(0.3, 1.0, 0.5, 0.55),
-                fill: true,
-                stroke_width: 1.0,
-            }],
+            shapes: vec![
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(-width * 0.5, -length * 0.5),
+                        Vec2D::new(width * 0.5, -length * 0.5),
+                        Vec2D::new(width * 0.5, length * 0.5),
+                        Vec2D::new(-width * 0.5, length * 0.5),
+                    ],
+                    color: ShapeColor::new(0.25, 1.0, 0.45, 0.18),
+                    fill: true,
+                    stroke_width: 1.0,
+                },
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(-core_width * 0.5, -length * 0.5),
+                        Vec2D::new(core_width * 0.5, -length * 0.5),
+                        Vec2D::new(core_width * 0.5, length * 0.5),
+                        Vec2D::new(-core_width * 0.5, length * 0.5),
+                    ],
+                    color: ShapeColor::new(0.75, 1.0, 0.85, 0.28),
+                    fill: true,
+                    stroke_width: 1.0,
+                },
+            ],
             collision: CollisionShape::Rectangle {
                 width,
                 height: length,
@@ -631,25 +632,72 @@ pub struct AuraOwner(pub Entity);
 
 /// 生成光柱
 pub fn spawn_beam_wave(commands: &mut Commands, config: &GameConfig, position: Vec3, level: u32) {
-    // 能量波（C）：横向“拱桥”弧形，可穿透，从玩家位置发射出去
+    // 能量波（C）：更像格斗游戏“气动波”
+    // - 颜色更克制（偏蓝白半透明），避免“彩虹”刺眼
+    // - 两端更窄（taper），中间更厚
+    // - 可穿透，从玩家位置向上飞出
+    //
     // 目标宽度：半屏幕（≈ window_width / 2），半圆宽度为 2*radius，因此 radius = window_width / 4。
     let radius = config.window_width * 0.25;
-    let stroke = 8.0 + 1.5 * level as f32;
+    let base_thickness = 10.0 + 1.2 * level as f32; // 中段厚度，整体更细
     let speed = config.bullet_speed * 0.9;
 
+    let segments = 44;
+    let mut outer: Vec<Vec2D> = Vec::with_capacity(segments + 1);
+    let mut inner: Vec<Vec2D> = Vec::with_capacity(segments + 1);
+
+    for i in 0..=segments {
+        let t = i as f32 / segments as f32; // 0..1
+        let angle = t * PI; // 0..PI
+
+        // taper：两端更窄，中间更厚
+        let edge = (t - 0.5).abs() * 2.0; // 0(中) -> 1(端)
+        let mid = (1.0 - edge).clamp(0.0, 1.0);
+        let thickness = base_thickness * (0.35 + 0.65 * mid.powf(1.4));
+
+        let outer_r = radius + thickness * 0.5;
+        let inner_r = (radius - thickness * 0.5).max(0.0);
+        outer.push(Vec2D::new(outer_r * angle.cos(), outer_r * angle.sin()));
+        inner.push(Vec2D::new(inner_r * angle.cos(), inner_r * angle.sin()));
+    }
+
+    // 闭合带状多边形：外弧 + 反向内弧
+    let mut band = outer;
+    for v in inner.into_iter().rev() {
+        band.push(v);
+    }
+
     let blueprint = GeometryBlueprint {
-        name: "crescent_wave".to_string(),
-        shapes: vec![GeometryShape::Arc {
-            center: Vec2D::ZERO,
-            radius,
-            // 上半弧：像“拱桥”横跨屏幕
-            start_angle: 0.0,
-            end_angle: PI,
-            color: ShapeColor::new(0.85, 0.55, 1.0, 0.65),
-            stroke_width: stroke,
-        }],
+        name: "aero_wave".to_string(),
+        shapes: vec![
+            // 外层柔光（更透明）
+            GeometryShape::Polygon {
+                vertices: band,
+                color: ShapeColor::new(0.35, 0.75, 1.0, 0.16),
+                fill: true,
+                stroke_width: 1.0,
+            },
+            // 内层亮芯（更细更淡）
+            GeometryShape::Arc {
+                center: Vec2D::ZERO,
+                radius,
+                start_angle: 0.0,
+                end_angle: PI,
+                color: ShapeColor::new(0.85, 0.95, 1.0, 0.22),
+                stroke_width: (base_thickness * 0.35).max(2.5),
+            },
+            // 轻微轮廓线，提升辨识度但不刺眼
+            GeometryShape::Arc {
+                center: Vec2D::ZERO,
+                radius: radius + base_thickness * 0.15,
+                start_angle: 0.0,
+                end_angle: PI,
+                color: ShapeColor::new(0.55, 0.9, 1.0, 0.18),
+                stroke_width: 2.0,
+            },
+        ],
         collision: CollisionShape::Circle {
-            radius: radius + stroke * 0.5,
+            radius: radius + base_thickness * 0.6,
         },
         scale: 1.0,
     };

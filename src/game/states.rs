@@ -70,6 +70,7 @@ impl GameData {
 
     pub fn reset(&mut self) {
         self.score = 0;
+        self.coins = 0;
         self.level = 1;
         self.lives = 3;
         self.max_lives = 5;
@@ -189,8 +190,19 @@ fn on_exit_playing() {
     log::info!("Exiting playing state");
 }
 
-fn on_enter_game_over(game_data: Res<GameData>) {
+fn on_enter_game_over(
+    game_data: Res<GameData>,
+    mut save_data: ResMut<crate::storage::SaveData>,
+) {
     log::info!("Game Over! Score: {}", game_data.score);
+    // 将游戏中的金币累加到总金币
+    save_data.total_coins += game_data.coins;
+    // 更新最高分
+    save_data.high_score = save_data.high_score.max(game_data.score);
+    // 立即保存，避免与 StoragePlugin 的 OnEnter(GameOver) 执行顺序产生竞态
+    if let Err(e) = crate::storage::save_game(&save_data) {
+        log::error!("Failed to save settled data: {}", e);
+    }
 }
 
 fn log_state_transitions(mut transitions: MessageReader<StateTransitionEvent<GameState>>) {

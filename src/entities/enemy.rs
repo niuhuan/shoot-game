@@ -197,14 +197,25 @@ pub fn spawn_enemy_with_difficulty(
 
     // 基础属性
     let (blueprint, base_health, base_score, base_shoot_interval) = match enemy_type {
-        EnemyType::Diamond => (GeometryBlueprint::default_enemy(), 2, 100, 2.0),
-        EnemyType::Hexagon => (GeometryBlueprint::hexagon_enemy(), 5, 300, 1.5),
-        EnemyType::Small => (
-            GeometryBlueprint::default_enemy(), // TODO: 创建小型敌人蓝图
-            1,
-            50,
-            3.0,
-        ),
+        EnemyType::Diamond => {
+            // 轻型机：菱形与无人机混合
+            let bp = if rng.random_bool(0.35) {
+                GeometryBlueprint::default_enemy()
+            } else {
+                GeometryBlueprint::raiden_enemy_drone_small()
+            };
+            (bp, 2, 100, 2.0)
+        }
+        EnemyType::Hexagon => {
+            // 重型机：六边形与装甲机混合
+            let bp = if rng.random_bool(0.5) {
+                GeometryBlueprint::hexagon_enemy()
+            } else {
+                GeometryBlueprint::raiden_enemy_tank()
+            };
+            (bp, 5, 300, 1.5)
+        }
+        EnemyType::Small => (GeometryBlueprint::raiden_enemy_drone_small(), 1, 50, 2.6),
     };
 
     // 根据难度调整属性
@@ -298,10 +309,21 @@ fn enemy_shooting(
 
             // 向下发射子弹
             let bullet_pos = transform.translation + Vec3::new(0.0, -20.0, 0.0);
+            let mut rng = rand::rng();
+            let style = if enemy.enemy_type == EnemyType::Hexagon {
+                super::bullet::EnemyBulletStyle::Ring
+            } else if enemy.enemy_type == EnemyType::Small {
+                super::bullet::EnemyBulletStyle::Needle
+            } else if rng.random_bool(0.25) {
+                super::bullet::EnemyBulletStyle::Needle
+            } else {
+                super::bullet::EnemyBulletStyle::Shard
+            };
             super::bullet::spawn_enemy_bullet(
                 &mut commands,
                 bullet_pos,
                 Vec2::new(0.0, -config.bullet_speed * 0.6),
+                style,
             );
         }
     }
@@ -363,6 +385,7 @@ fn enemy_collision_handler(
                         &mut enemy_set.p1(),
                         enemy_entity,
                         bullet.damage,
+                        &transforms,
                     );
                     commands.entity(other_entity).despawn();
                     continue;
@@ -408,6 +431,7 @@ fn enemy_collision_handler(
                             &mut enemy_set.p1(),
                             hit_enemy,
                             weapon_bullet.damage,
+                            &transforms,
                         );
                     }
                     let shard_count = ((rocket.explosion_radius / 4.0) as u32).clamp(10, 28);
@@ -428,6 +452,7 @@ fn enemy_collision_handler(
                     &mut enemy_set.p1(),
                     enemy_entity,
                     weapon_bullet.damage,
+                    &transforms,
                 );
 
                 // 是否需要销毁子弹（穿透则保留）
@@ -459,6 +484,7 @@ fn apply_direct_damage(
     enemies: &mut Query<&mut Enemy>,
     enemy_entity: Entity,
     damage: i32,
+    transforms: &Query<&Transform>,
 ) {
     let Ok(mut enemy) = enemies.get_mut(enemy_entity) else {
         return;
@@ -467,8 +493,16 @@ fn apply_direct_damage(
     enemy.health -= damage;
     if enemy.health <= 0 {
         let score = enemy.score_value;
+        let position = transforms.get(enemy_entity).map(|t| t.translation).unwrap_or_default();
         commands.entity(enemy_entity).despawn();
         game_data.add_score(score);
+        
+        // 2% 概率掉落金币
+        let mut rng = rand::rng();
+        if rng.random_bool(0.02) {
+            use crate::entities::shield::{spawn_power_up, PowerUpType};
+            spawn_power_up(commands, position, PowerUpType::Coin);
+        }
     }
 }
 

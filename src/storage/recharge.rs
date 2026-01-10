@@ -183,10 +183,9 @@ fn handle_recharge_result(
             state.success_message = Some(event.message.clone());
             state.error_message = None;
 
-            if let Some(coins) = event.coins_added {
-                save_data.total_coins += coins;
-                save_data.has_purchased = true;
-            }
+            // 充值成功时增加100金币
+            save_data.total_coins += 100;
+            save_data.has_purchased = true;
         } else {
             state.error_message = Some(event.message.clone());
             state.success_message = None;
@@ -438,7 +437,9 @@ fn show_input_overlay() {
 
     if document.get_element_by_id("recharge-overlay").is_some() {
         if let Some(overlay) = document.get_element_by_id("recharge-overlay") {
-            let _ = overlay.set_attribute("style", "display: flex;");
+            if let Some(html) = overlay.dyn_ref::<web_sys::HtmlElement>() {
+                let _ = html.style().set_property("display", "flex");
+            }
         }
         return;
     }
@@ -546,6 +547,8 @@ fn show_input_overlay() {
 /// 隐藏 HTML 输入覆盖层 (WASM)
 #[cfg(target_arch = "wasm32")]
 fn hide_input_overlay() {
+    use wasm_bindgen::JsCast;
+
     let Some(window) = web_sys::window() else {
         return;
     };
@@ -553,7 +556,9 @@ fn hide_input_overlay() {
         return;
     };
     if let Some(overlay) = document.get_element_by_id("recharge-overlay") {
-        let _ = overlay.set_attribute("style", "display: none;");
+        if let Some(html) = overlay.dyn_ref::<web_sys::HtmlElement>() {
+            let _ = html.style().set_property("display", "none");
+        }
     }
 }
 

@@ -353,26 +353,84 @@ fn create_boss_blueprint(boss_type: BossType) -> GeometryBlueprint {
         BossType::CircleGuardian => GeometryBlueprint {
             name: "boss_circle_guardian".to_string(),
             shapes: vec![
+                // UFO 底盘（扁平多边形，近似椭圆）
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(-size * 1.10, 0.0),
+                        Vec2D::new(-size * 0.75, size * 0.35),
+                        Vec2D::new(-size * 0.20, size * 0.48),
+                        Vec2D::new(size * 0.20, size * 0.48),
+                        Vec2D::new(size * 0.75, size * 0.35),
+                        Vec2D::new(size * 1.10, 0.0),
+                        Vec2D::new(size * 0.75, -size * 0.35),
+                        Vec2D::new(size * 0.20, -size * 0.48),
+                        Vec2D::new(-size * 0.20, -size * 0.48),
+                        Vec2D::new(-size * 0.75, -size * 0.35),
+                    ],
+                    color: ShapeColor::new(0.12, 0.16, 0.22, 0.95),
+                    fill: true,
+                    stroke_width: 3.0,
+                },
+                // UFO 外环描边
                 GeometryShape::Circle {
                     center: Vec2D::ZERO,
-                    radius: size,
+                    radius: size * 0.95,
+                    color: ShapeColor::new(0.3, 1.0, 1.0, 0.35),
+                    fill: false,
+                    stroke_width: 4.0,
+                },
+                // 机体本体（保留“圆形守护者”感觉）
+                GeometryShape::Circle {
+                    center: Vec2D::ZERO,
+                    radius: size * 0.78,
                     color,
                     fill: true,
                     stroke_width: 4.0,
                 },
+                // 舱罩（半透明圆顶）
                 GeometryShape::Circle {
-                    center: Vec2D::ZERO,
-                    radius: size * 0.7,
-                    color: ShapeColor::new(0.0, 0.8, 0.8, 0.4),
-                    fill: false,
-                    stroke_width: 3.0,
-                },
-                GeometryShape::Circle {
-                    center: Vec2D::ZERO,
-                    radius: size * 0.4,
-                    color: ShapeColor::new(1.0, 1.0, 1.0, 0.5),
+                    center: Vec2D::new(0.0, size * 0.18),
+                    radius: size * 0.38,
+                    color: ShapeColor::new(0.9, 0.98, 1.0, 0.25),
                     fill: true,
                     stroke_width: 2.0,
+                },
+                // 舱罩高光
+                GeometryShape::Circle {
+                    center: Vec2D::new(-size * 0.12, size * 0.28),
+                    radius: size * 0.12,
+                    color: ShapeColor::new(1.0, 1.0, 1.0, 0.18),
+                    fill: true,
+                    stroke_width: 1.0,
+                },
+                // 周围“灯珠”
+                GeometryShape::Circle {
+                    center: Vec2D::new(-size * 0.55, -size * 0.10),
+                    radius: size * 0.08,
+                    color: ShapeColor::new(0.15, 0.95, 0.85, 0.85),
+                    fill: true,
+                    stroke_width: 1.0,
+                },
+                GeometryShape::Circle {
+                    center: Vec2D::new(-size * 0.20, -size * 0.25),
+                    radius: size * 0.08,
+                    color: ShapeColor::new(0.15, 0.95, 0.85, 0.85),
+                    fill: true,
+                    stroke_width: 1.0,
+                },
+                GeometryShape::Circle {
+                    center: Vec2D::new(size * 0.20, -size * 0.25),
+                    radius: size * 0.08,
+                    color: ShapeColor::new(0.15, 0.95, 0.85, 0.85),
+                    fill: true,
+                    stroke_width: 1.0,
+                },
+                GeometryShape::Circle {
+                    center: Vec2D::new(size * 0.55, -size * 0.10),
+                    radius: size * 0.08,
+                    color: ShapeColor::new(0.15, 0.95, 0.85, 0.85),
+                    fill: true,
+                    stroke_width: 1.0,
                 },
             ],
             collision: CollisionShape::Circle { radius: size },
@@ -554,12 +612,26 @@ fn boss_behavior(
             execute_boss_attack(&mut commands, &config, &transform, &mut boss);
 
             // 重置攻击计时器（阶段越高攻击越快）
-            boss.attack_timer = match boss.phase {
-                1 => 2.0,
-                2 => 1.5,
-                _ => 1.0,
-            };
+            boss.attack_timer = boss_attack_cooldown(boss.boss_type, boss.phase);
         }
+    }
+}
+
+fn boss_attack_cooldown(boss_type: BossType, phase: u32) -> f32 {
+    // 统一提高“攻击欲望”，并对偏弱的 Boss 类型进一步加速。
+    let (p1, p2, p3) = match boss_type {
+        // 弹幕型：可以更频繁
+        BossType::HexFortress | BossType::SpiralShooter | BossType::CircleGuardian => (1.6, 1.2, 0.9),
+        // 压迫型：更高频
+        BossType::TrackerPrime | BossType::SplitCore | BossType::CrossLaser => (1.4, 1.05, 0.8),
+        // 默认
+        _ => (1.8, 1.35, 1.0),
+    };
+
+    match phase {
+        1 => p1,
+        2 => p2,
+        _ => p3,
     }
 }
 

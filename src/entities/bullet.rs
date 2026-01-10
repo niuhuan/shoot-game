@@ -5,6 +5,14 @@ use bevy::prelude::*;
 use crate::game::{not_upgrading, Collider, CollisionLayer, CollisionMask, GameConfig, GameState};
 use crate::geometry::{spawn_geometry_entity, GeometryBlueprint};
 
+/// 敌人子弹样式
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EnemyBulletStyle {
+    Shard,
+    Needle,
+    Ring,
+}
+
 /// 子弹插件
 pub struct BulletPlugin;
 
@@ -54,8 +62,17 @@ pub fn spawn_player_bullet(commands: &mut Commands, position: Vec3, speed: f32) 
 }
 
 /// 生成敌人子弹
-pub fn spawn_enemy_bullet(commands: &mut Commands, position: Vec3, velocity: Vec2) {
-    let blueprint = GeometryBlueprint::enemy_bullet();
+pub fn spawn_enemy_bullet(
+    commands: &mut Commands,
+    position: Vec3,
+    velocity: Vec2,
+    style: EnemyBulletStyle,
+) {
+    let blueprint = match style {
+        EnemyBulletStyle::Shard => GeometryBlueprint::enemy_bullet(),
+        EnemyBulletStyle::Needle => GeometryBlueprint::enemy_bullet_needle(),
+        EnemyBulletStyle::Ring => GeometryBlueprint::enemy_bullet_ring(),
+    };
     let entity = spawn_geometry_entity(commands, &blueprint, position);
 
     commands.entity(entity).insert((

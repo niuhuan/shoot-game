@@ -21,7 +21,12 @@ impl Plugin for MenuPlugin {
             .add_systems(OnExit(GameState::Paused), cleanup_pause_menu)
             .add_systems(
                 Update,
-                (menu_button_system, menu_keyboard_start).run_if(in_state(GameState::Menu)),
+                (
+                    menu_button_system,
+                    menu_keyboard_start,
+                    update_menu_stats,
+                )
+                    .run_if(in_state(GameState::Menu)),
             )
             .add_systems(
                 Update,
@@ -48,7 +53,7 @@ struct GameOverRoot;
 struct PauseRoot;
 
 /// 按钮类型
-#[derive(Component, Clone, Copy)]
+#[derive(Component, Clone, Copy, PartialEq, Eq)]
 enum MenuButton {
     Start,
     Recharge,
@@ -66,6 +71,14 @@ enum PauseButton {
     Resume,
     Menu,
 }
+
+/// 菜单金币文本标记
+#[derive(Component)]
+struct MenuCoinsText;
+
+/// 菜单最高分文本标记
+#[derive(Component)]
+struct MenuHighScoreText;
 
 /// 字体资源
 #[derive(Resource)]
@@ -122,32 +135,84 @@ fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>, save_data:
                     ..default()
                 },
                 TextColor(Color::srgb(0.8, 0.8, 0.8)),
+                MenuHighScoreText,
                 Node {
                     margin: UiRect::bottom(Val::Px(30.0)),
                     ..default()
                 },
             ));
 
-            // 金币
+            // 金币和充值按钮（同一行）
             parent.spawn((
-                Text::new(format!("金币: {}", save_data.total_coins)),
-                TextFont {
-                    font: font.clone(),
-                    font_size: 20.0,
-                    ..default()
-                },
-                TextColor(Color::srgb(1.0, 0.85, 0.0)),
                 Node {
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
                     margin: UiRect::bottom(Val::Px(40.0)),
                     ..default()
                 },
-            ));
+            ))
+            .with_children(|parent| {
+                // 金币数量
+                parent.spawn((
+                    Text::new(format!("金币: {}", save_data.total_coins)),
+                    TextFont {
+                        font: font.clone(),
+                        font_size: 20.0,
+                        ..default()
+                    },
+                    TextColor(Color::srgb(1.0, 0.85, 0.0)),
+                    MenuCoinsText,
+                    Node {
+                        margin: UiRect::right(Val::Px(10.0)),
+                        ..default()
+                    },
+                ));
+
+                // 充值按钮（文本样式，小字体，带下划线）
+                parent.spawn((
+                    Button,
+                    Node {
+                        padding: UiRect::all(Val::Px(5.0)),
+                        ..default()
+                    },
+                    BackgroundColor(Color::NONE),
+                    MenuButton::Recharge,
+                ))
+                .with_children(|parent| {
+                    parent
+                        .spawn(Node {
+                            flex_direction: FlexDirection::Column,
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        })
+                        .with_children(|parent| {
+                            parent.spawn((
+                                Text::new("充值"),
+                                TextFont {
+                                    font: font.clone(),
+                                    font_size: 14.0,
+                                    ..default()
+                                },
+                                TextColor(Color::srgb(0.0, 0.8, 1.0)),
+                            ));
+                            // underline (avoid relying on combining underline glyphs)
+                            parent.spawn((
+                                Node {
+                                    width: Val::Percent(100.0),
+                                    height: Val::Px(2.0),
+                                    margin: UiRect::top(Val::Px(1.0)),
+                                    ..default()
+                                },
+                                BackgroundColor(Color::srgb(0.0, 0.8, 1.0)),
+                            ));
+                        });
+                });
+            });
 
             // 开始按钮
             spawn_button(parent, &font, "开始游戏", MenuButton::Start);
-
-            // 充值按钮
-            spawn_button(parent, &font, "充值中心", MenuButton::Recharge);
         });
 }
 
@@ -206,9 +271,9 @@ fn menu_button_system(
     for (interaction, button, mut bg_color) in interaction_query.iter_mut() {
         match *interaction {
             Interaction::Pressed => {
-                *bg_color = BackgroundColor(Color::srgb(0.0, 0.6, 0.8));
                 match button {
                     MenuButton::Start => {
+                        *bg_color = BackgroundColor(Color::srgb(0.0, 0.6, 0.8));
                         log::info!("Menu: start pressed");
                         game_data.reset();
                         next_state.set(GameState::Playing);
@@ -218,6 +283,7 @@ fn menu_button_system(
                         next_state.set(GameState::Recharge);
                     }
                     MenuButton::Quit => {
+                        *bg_color = BackgroundColor(Color::srgb(0.0, 0.6, 0.8));
                         // WASM 环境下不能退出
                         #[cfg(not(target_arch = "wasm32"))]
                         std::process::exit(0);
@@ -225,10 +291,16 @@ fn menu_button_system(
                 }
             }
             Interaction::Hovered => {
-                *bg_color = BackgroundColor(Color::srgb(0.2, 0.2, 0.35));
+                *bg_color = match button {
+                    MenuButton::Recharge => BackgroundColor(Color::NONE),
+                    _ => BackgroundColor(Color::srgb(0.2, 0.2, 0.35)),
+                };
             }
             Interaction::None => {
-                *bg_color = BackgroundColor(Color::srgb(0.15, 0.15, 0.25));
+                *bg_color = match button {
+                    MenuButton::Recharge => BackgroundColor(Color::NONE),
+                    _ => BackgroundColor(Color::srgb(0.15, 0.15, 0.25)),
+                };
             }
         }
     }
@@ -425,5 +497,18 @@ fn pause_button_system(
                 *bg_color = BackgroundColor(Color::srgb(0.15, 0.15, 0.25));
             }
         }
+    }
+}
+
+fn update_menu_stats(
+    save_data: Res<SaveData>,
+    mut coins_query: Query<&mut Text, With<MenuCoinsText>>,
+    mut high_score_query: Query<&mut Text, (With<MenuHighScoreText>, Without<MenuCoinsText>)>,
+) {
+    if let Ok(mut text) = coins_query.single_mut() {
+        **text = format!("金币: {}", save_data.total_coins);
+    }
+    if let Ok(mut text) = high_score_query.single_mut() {
+        **text = format!("最高分: {}", save_data.high_score);
     }
 }
