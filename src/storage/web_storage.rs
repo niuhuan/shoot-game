@@ -32,7 +32,7 @@ pub struct SaveData {
     pub unlocked_ships: Vec<String>,
     /// 游戏设置
     pub settings: GameSettings,
-    /// 充值记录 (仅记录是否有充值)
+    /// 打赏记录 (仅记录是否有打赏)
     pub has_purchased: bool,
 }
 

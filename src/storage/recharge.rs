@@ -1,5 +1,5 @@
-//! 充值系统
-//! 处理充值相关的 HTTP 请求 + Web 端 HTML 覆盖层输入
+//! 打赏系统
+//! 处理打赏相关的 HTTP 请求 + Web 端 HTML 覆盖层输入
 
 use bevy::prelude::*;
 use serde::Serialize;
@@ -11,7 +11,7 @@ use std::collections::VecDeque;
 #[cfg(target_arch = "wasm32")]
 use std::sync::{Mutex, OnceLock};
 
-/// 充值插件
+/// 打赏插件
 pub struct RechargePlugin;
 
 impl Plugin for RechargePlugin {
@@ -36,7 +36,7 @@ impl Plugin for RechargePlugin {
     }
 }
 
-/// 充值状态
+/// 打赏状态
 #[derive(Resource)]
 pub struct RechargeState {
     pub username: String,
@@ -68,14 +68,14 @@ pub enum RechargeField {
     OrderId,
 }
 
-/// 充值请求事件
+/// 打赏请求事件
 #[derive(Message)]
 pub struct RechargeEvent {
     pub username: String,
     pub order_id: String,
 }
 
-/// 充值结果事件
+/// 打赏结果事件
 #[derive(Message, Clone)]
 pub struct RechargeResultEvent {
     pub success: bool,
@@ -83,7 +83,7 @@ pub struct RechargeResultEvent {
     pub coins_added: Option<u32>,
 }
 
-/// 充值请求数据
+/// 打赏请求数据
 #[derive(Serialize)]
 struct RechargeRequest {
     username: String,
@@ -164,7 +164,7 @@ fn process_recharge_events(
             // 原生环境下模拟成功
             results.write(RechargeResultEvent {
                 success: true,
-                message: "充值成功！".to_string(),
+                message: "打赏成功！".to_string(),
                 coins_added: Some(100),
             });
         }
@@ -183,7 +183,7 @@ fn handle_recharge_result(
             state.success_message = Some(event.message.clone());
             state.error_message = None;
 
-            // 充值成功时增加100金币
+            // 打赏成功时增加100金币
             save_data.total_coins += 100;
             save_data.has_purchased = true;
         } else {
@@ -243,7 +243,7 @@ fn validate_order_id(order_id: &str) -> Result<(), String> {
 
 // ---- WASM：异步 HTTP ----
 
-/// 发送充值请求 (WASM)
+/// 发送打赏请求 (WASM)
 #[cfg(target_arch = "wasm32")]
 pub fn send_recharge_request(username: String, order_id: String, api_url: &str) {
     use wasm_bindgen_futures::spawn_local;
@@ -320,7 +320,7 @@ async fn perform_recharge_request(
     })
 }
 
-/// 发送充值请求 (Native - 模拟)
+/// 发送打赏请求 (Native - 模拟)
 #[cfg(not(target_arch = "wasm32"))]
 pub fn send_recharge_request(username: String, order_id: String, _api_url: &str) {
     log::info!("Native recharge request (simulated): username={username}, order_id={order_id}");
@@ -466,7 +466,7 @@ fn show_input_overlay() {
                 max-width: 420px;
                 width: 90%;
             ">
-                <h2 style="color: #00d4ff; margin-bottom: 20px;">充值中心</h2>
+                <h2 style="color: #00d4ff; margin-bottom: 20px;">打赏中心</h2>
                 <p style="color: #fff; margin-bottom: 10px;">请填写用户名与订单号</p>
                 <p style="color: #aaa; margin-bottom: 15px; font-size: 12px; line-height: 1.5;">
                     提示：订单号来自赞助平台个人中心 -> 我的订单。每个订单号只能使用一次。

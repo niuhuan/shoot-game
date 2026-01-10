@@ -16,7 +16,8 @@ impl Plugin for HudPlugin {
             .add_systems(OnEnter(GameState::Recharge), cleanup_hud)
             .add_systems(
                 Update,
-                (update_hud, update_boss_hud).run_if(in_state(GameState::Playing)),
+                (update_hud, update_boss_hud)
+                    .run_if(in_state(GameState::Playing)),
             );
     }
 }

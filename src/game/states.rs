@@ -17,7 +17,7 @@ pub enum GameState {
     Paused,
     /// 游戏结束
     GameOver,
-    /// 充值界面
+    /// 打赏界面
     Recharge,
 }
 
@@ -89,6 +89,14 @@ impl GameData {
         }
         // 添加经验值
         self.add_experience(points);
+    }
+
+    /// 仅增加分数（不增加经验）
+    pub fn add_score_only(&mut self, points: u32) {
+        self.score += points;
+        if self.score > self.high_score {
+            self.high_score = self.score;
+        }
     }
 
     /// 计算升级所需经验值（曲线公式）

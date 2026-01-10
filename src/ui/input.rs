@@ -1,5 +1,5 @@
 //! 输入处理模块
-//! 处理充值界面的文字输入（原生：Bevy UI；Web：HTML 覆盖层）
+//! 处理打赏界面的文字输入（原生：Bevy UI；Web：HTML 覆盖层）
 
 use bevy::prelude::*;
 
@@ -32,11 +32,11 @@ impl Plugin for InputPlugin {
     }
 }
 
-/// 充值 UI 根节点
+/// 打赏 UI 根节点
 #[derive(Component)]
 struct RechargeRoot;
 
-/// 充值按钮类型
+/// 打赏按钮类型
 #[derive(Component, Clone, Copy)]
 enum RechargeButton {
     Submit,
@@ -79,7 +79,7 @@ fn setup_recharge_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
             ))
             .with_children(|parent| {
                 parent.spawn((
-                    Text::new("充值中心"),
+                    Text::new("打赏中心"),
                     TextFont {
                         font: font.clone(),
                         font_size: 36.0,

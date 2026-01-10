@@ -890,6 +890,17 @@ fn boss_collision_handler(
 
         // 计算伤害
         let damage = if let Ok(bullet) = bullets.get(other_entity) {
+            // 受击闪烁：尽量使用子弹当前位置作为命中点
+            let boss_pos = transforms
+                .get(boss_entity)
+                .map(|t| t.translation)
+                .unwrap_or_default();
+            let impact = transforms
+                .get(other_entity)
+                .map(|t| t.translation)
+                .unwrap_or(boss_pos);
+            crate::entities::spawn_hit_sparks(&mut commands, impact);
+            crate::entities::spawn_boss_hit_flash(&mut commands, impact);
             commands.entity(other_entity).despawn();
             bullet.damage
         } else if let Ok(weapon_bullet) = weapon_bullets.get(other_entity) {
@@ -900,6 +911,21 @@ fn boss_collision_handler(
                 }
                 hits.entities.push(boss_entity);
             }
+
+            let boss_pos = transforms
+                .get(boss_entity)
+                .map(|t| t.translation)
+                .unwrap_or_default();
+            let bullet_pos = transforms
+                .get(other_entity)
+                .map(|t| t.translation)
+                .unwrap_or(boss_pos);
+            let impact = match weapon_bullet.weapon_type {
+                WeaponType::Laser | WeaponType::Beam => boss_pos,
+                _ => bullet_pos,
+            };
+            crate::entities::spawn_hit_sparks(&mut commands, impact);
+            crate::entities::spawn_boss_hit_flash(&mut commands, impact);
 
             // 导弹爆炸
             if weapon_bullet.weapon_type == WeaponType::Rocket {

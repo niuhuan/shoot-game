@@ -127,14 +127,14 @@ pub fn wasm_main() {
         .run();
 }
 
-/// 从 JS 调用的充值提交函数
+/// 从 JS 调用的打赏提交函数
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub fn submit_recharge_form(username: String, order_id: String) {
     storage::enqueue_recharge_submit(username, order_id);
 }
 
-/// 从 JS 调用：取消充值并返回菜单
+/// 从 JS 调用：取消打赏并返回菜单
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub fn cancel_recharge() {

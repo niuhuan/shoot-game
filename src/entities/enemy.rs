@@ -57,6 +57,12 @@ pub enum EnemyType {
     Hexagon,
     /// 快速小型敌人
     Small,
+    /// 精英：侦察机（慢、体积大、弹多）
+    EliteScout,
+    /// 精英：炮艇（慢、体积大、弹多）
+    EliteGunship,
+    /// 精英：守卫机（慢、体积大、弹多）
+    EliteGuard,
 }
 
 /// 敌人移动模式
@@ -104,11 +110,6 @@ fn spawn_enemies(
     boss_state: Res<BossState>,
     mut spawn_timer: ResMut<EnemySpawnTimer>,
 ) {
-    // Boss战期间不生成普通敌人
-    if boss_state.active {
-        return;
-    }
-
     spawn_timer.timer += time.delta_secs();
 
     // 根据玩家等级计算难度系数
@@ -117,22 +118,44 @@ fn spawn_enemies(
 
     // 生成间隔随等级降低（最低0.3秒）
     spawn_timer.interval = (config.enemy_spawn_interval / difficulty).max(0.3);
+    // Boss 战期间：只生成“一半频率的小兵”，不生成精英
+    if boss_state.active {
+        spawn_timer.interval *= 2.0;
+    }
 
     if spawn_timer.timer >= spawn_timer.interval {
         spawn_timer.timer = 0.0;
 
         let mut rng = rand::rng();
 
-        // 高等级时更容易出现强敌
-        let hexagon_chance = (0.2 + level as f64 * 0.02).min(0.5); // 最高50%
-        let small_chance = 0.15;
-
-        let enemy_type = if rng.random_bool(1.0 - hexagon_chance - small_chance) {
-            EnemyType::Diamond
-        } else if rng.random_bool(hexagon_chance / (hexagon_chance + small_chance)) {
-            EnemyType::Hexagon
+        let enemy_type = if boss_state.active {
+            // Boss 期间：只出小兵（不出精英，不额外刷多波）
+            if rng.random_bool(0.7) {
+                EnemyType::Small
+            } else {
+                EnemyType::Diamond
+            }
         } else {
-            EnemyType::Small
+            // 非 Boss 期间：有低概率刷精英
+            let elite_chance = (0.02 + level as f64 * 0.003).min(0.08); // 2% -> 8%
+            if level >= 3 && rng.random_bool(elite_chance) {
+                match rng.random_range(0..3) {
+                    0 => EnemyType::EliteScout,
+                    1 => EnemyType::EliteGunship,
+                    _ => EnemyType::EliteGuard,
+                }
+            } else {
+                // 高等级时更容易出现强敌
+                let hexagon_chance = (0.2 + level as f64 * 0.02).min(0.5); // 最高50%
+                let small_chance = 0.15;
+                if rng.random_bool(1.0 - hexagon_chance - small_chance) {
+                    EnemyType::Diamond
+                } else if rng.random_bool(hexagon_chance / (hexagon_chance + small_chance)) {
+                    EnemyType::Hexagon
+                } else {
+                    EnemyType::Small
+                }
+            }
         };
 
         // 随机X位置
@@ -149,8 +172,8 @@ fn spawn_enemies(
             difficulty,
         );
 
-        // 高等级时可能同时生成多个敌人
-        if level >= 5 && rng.random_bool(0.3) {
+        // 高等级时可能同时生成多个敌人（Boss 期间不额外生成）
+        if !boss_state.active && level >= 5 && rng.random_bool(0.3) {
             let x2 = rng
                 .random_range(-config.window_width / 2.0 + 50.0..config.window_width / 2.0 - 50.0);
             spawn_enemy_with_difficulty(
@@ -161,7 +184,7 @@ fn spawn_enemies(
                 difficulty,
             );
         }
-        if level >= 10 && rng.random_bool(0.2) {
+        if !boss_state.active && level >= 10 && rng.random_bool(0.2) {
             let x3 = rng
                 .random_range(-config.window_width / 2.0 + 50.0..config.window_width / 2.0 - 50.0);
             spawn_enemy_with_difficulty(
@@ -216,6 +239,10 @@ pub fn spawn_enemy_with_difficulty(
             (bp, 5, 300, 1.5)
         }
         EnemyType::Small => (GeometryBlueprint::raiden_enemy_drone_small(), 1, 50, 2.6),
+        // 精英射速更慢：攻击间隔约为原来的 2 倍
+        EnemyType::EliteScout => (GeometryBlueprint::elite_scout(), 10, 900, 2.8),
+        EnemyType::EliteGunship => (GeometryBlueprint::elite_gunship(), 14, 1200, 3.2),
+        EnemyType::EliteGuard => (GeometryBlueprint::elite_guard(), 18, 1500, 3.6),
     };
 
     // 根据难度调整属性
@@ -225,8 +252,15 @@ pub fn spawn_enemy_with_difficulty(
 
     let entity = spawn_geometry_entity(commands, &blueprint, position);
 
-    // 速度也随难度增加
-    let speed_multiplier = 1.0 + (difficulty - 1.0) * 0.5;
+    // 速度也随难度增加；精英更慢一点
+    let mut speed_multiplier = 1.0 + (difficulty - 1.0) * 0.5;
+    if matches!(
+        enemy_type,
+        EnemyType::EliteScout | EnemyType::EliteGunship | EnemyType::EliteGuard
+    ) {
+        // 精英：显著更慢（约为之前的 0.2 倍）
+        speed_multiplier *= 0.2;
+    }
 
     // 随机移动模式
     let movement = match rng.random_range(0..3) {
@@ -307,24 +341,89 @@ fn enemy_shooting(
         if enemy.shoot_timer <= 0.0 {
             enemy.shoot_timer = enemy.shoot_interval;
 
-            // 向下发射子弹
-            let bullet_pos = transform.translation + Vec3::new(0.0, -20.0, 0.0);
+            let bullet_pos = transform.translation + Vec3::new(0.0, -24.0, 0.0);
             let mut rng = rand::rng();
-            let style = if enemy.enemy_type == EnemyType::Hexagon {
-                super::bullet::EnemyBulletStyle::Ring
-            } else if enemy.enemy_type == EnemyType::Small {
-                super::bullet::EnemyBulletStyle::Needle
-            } else if rng.random_bool(0.25) {
-                super::bullet::EnemyBulletStyle::Needle
-            } else {
-                super::bullet::EnemyBulletStyle::Shard
-            };
-            super::bullet::spawn_enemy_bullet(
-                &mut commands,
-                bullet_pos,
-                Vec2::new(0.0, -config.bullet_speed * 0.6),
-                style,
-            );
+
+            // 精英：慢速但弹幕更密
+            match enemy.enemy_type {
+                EnemyType::EliteScout => {
+                    // 3-way 扇形 + 1 个中心加速弹
+                    let base = -std::f32::consts::FRAC_PI_2;
+                    for (i, speed_mul, style) in [
+                        (-1, 0.55, super::bullet::EnemyBulletStyle::Ring),
+                        (0, 0.65, super::bullet::EnemyBulletStyle::Shard),
+                        (1, 0.55, super::bullet::EnemyBulletStyle::Ring),
+                        (0, 0.85, super::bullet::EnemyBulletStyle::Needle),
+                    ] {
+                        let angle = base + (i as f32) * 0.18;
+                        let v = Vec2::new(angle.cos(), angle.sin()) * (config.bullet_speed * speed_mul);
+                        super::bullet::spawn_enemy_bullet(&mut commands, bullet_pos, v, style);
+                    }
+                }
+                EnemyType::EliteGunship => {
+                    // 5-way 扇形（更宽）+ 两侧“压制弹”
+                    let base = -std::f32::consts::FRAC_PI_2;
+                    let count = 5;
+                    let spread = 0.75;
+                    for i in 0..count {
+                        let t = if count == 1 {
+                            0.0
+                        } else {
+                            (i as f32 / (count - 1) as f32) * 2.0 - 1.0
+                        };
+                        let angle = base + t * spread * 0.5;
+                        let v = Vec2::new(angle.cos(), angle.sin()) * (config.bullet_speed * 0.6);
+                        super::bullet::spawn_enemy_bullet(
+                            &mut commands,
+                            bullet_pos,
+                            v,
+                            super::bullet::EnemyBulletStyle::Shard,
+                        );
+                    }
+                    for side in [-1.0, 1.0] {
+                        let v = Vec2::new(side * 0.25, -1.0).normalize() * (config.bullet_speed * 0.5);
+                        super::bullet::spawn_enemy_bullet(
+                            &mut commands,
+                            bullet_pos + Vec3::new(side * 14.0, 0.0, 0.0),
+                            v,
+                            super::bullet::EnemyBulletStyle::Ring,
+                        );
+                    }
+                }
+                EnemyType::EliteGuard => {
+                    // 环形小弹（朝下半圆更密）
+                    let count = 10;
+                    for i in 0..count {
+                        let t = i as f32 / (count - 1) as f32; // 0..1
+                        let angle = std::f32::consts::PI * (0.15 + 0.7 * t) + std::f32::consts::PI; // mostly downward
+                        let v = Vec2::new(angle.cos(), angle.sin()) * (config.bullet_speed * 0.42);
+                        super::bullet::spawn_enemy_bullet(
+                            &mut commands,
+                            bullet_pos,
+                            v,
+                            super::bullet::EnemyBulletStyle::Ring,
+                        );
+                    }
+                }
+                _ => {
+                    // 普通敌人：单发为主，类型决定样式
+                    let style = if enemy.enemy_type == EnemyType::Hexagon {
+                        super::bullet::EnemyBulletStyle::Ring
+                    } else if enemy.enemy_type == EnemyType::Small {
+                        super::bullet::EnemyBulletStyle::Needle
+                    } else if rng.random_bool(0.25) {
+                        super::bullet::EnemyBulletStyle::Needle
+                    } else {
+                        super::bullet::EnemyBulletStyle::Shard
+                    };
+                    super::bullet::spawn_enemy_bullet(
+                        &mut commands,
+                        bullet_pos,
+                        Vec2::new(0.0, -config.bullet_speed * 0.6),
+                        style,
+                    );
+                }
+            }
         }
     }
 }
@@ -334,6 +433,7 @@ fn enemy_collision_handler(
     mut commands: Commands,
     mut collision_events: MessageReader<CollisionEvent>,
     mut game_data: ResMut<GameData>,
+    boss_state: Res<BossState>,
     mut enemy_set: ParamSet<(Query<(Entity, &Transform), With<Enemy>>, Query<&mut Enemy>)>,
     enemy_marker: Query<(), With<Enemy>>,
     bullets: Query<&Bullet>,
@@ -379,9 +479,17 @@ fn enemy_collision_handler(
             CollisionLayer::PlayerBullet => {
                 // 确定伤害与子弹类型
                 if let Ok(bullet) = bullets.get(other_entity) {
+                    // 命中火花
+                    let spark_pos = transforms
+                        .get(other_entity)
+                        .map(|t| t.translation)
+                        .unwrap_or_else(|_| transforms.get(enemy_entity).map(|t| t.translation).unwrap_or_default());
+                    crate::entities::spawn_hit_sparks(&mut commands, spark_pos);
+
                     apply_direct_damage(
                         &mut commands,
                         &mut game_data,
+                        boss_state.active,
                         &mut enemy_set.p1(),
                         enemy_entity,
                         bullet.damage,
@@ -428,6 +536,7 @@ fn enemy_collision_handler(
                         apply_direct_damage(
                             &mut commands,
                             &mut game_data,
+                            boss_state.active,
                             &mut enemy_set.p1(),
                             hit_enemy,
                             weapon_bullet.damage,
@@ -446,9 +555,24 @@ fn enemy_collision_handler(
                 }
 
                 // 其它武器：结算单体伤害
+                // 命中火花：长条/能量波这类“面积武器”用敌人位置更符合观感
+                let enemy_pos = transforms
+                    .get(enemy_entity)
+                    .map(|t| t.translation)
+                    .unwrap_or_default();
+                let bullet_pos = transforms
+                    .get(other_entity)
+                    .map(|t| t.translation)
+                    .unwrap_or(enemy_pos);
+                let spark_pos = match weapon_bullet.weapon_type {
+                    WeaponType::Laser | WeaponType::Beam => enemy_pos,
+                    _ => bullet_pos,
+                };
+                crate::entities::spawn_hit_sparks(&mut commands, spark_pos);
                 apply_direct_damage(
                     &mut commands,
                     &mut game_data,
+                    boss_state.active,
                     &mut enemy_set.p1(),
                     enemy_entity,
                     weapon_bullet.damage,
@@ -481,6 +605,7 @@ fn enemy_collision_handler(
 fn apply_direct_damage(
     commands: &mut Commands,
     game_data: &mut ResMut<GameData>,
+    boss_active: bool,
     enemies: &mut Query<&mut Enemy>,
     enemy_entity: Entity,
     damage: i32,
@@ -495,13 +620,17 @@ fn apply_direct_damage(
         let score = enemy.score_value;
         let position = transforms.get(enemy_entity).map(|t| t.translation).unwrap_or_default();
         commands.entity(enemy_entity).despawn();
-        game_data.add_score(score);
-        
-        // 2% 概率掉落金币
-        let mut rng = rand::rng();
-        if rng.random_bool(0.02) {
-            use crate::entities::shield::{spawn_power_up, PowerUpType};
-            spawn_power_up(commands, position, PowerUpType::Coin);
+        if boss_active {
+            // Boss 战期间的小兵：不增长经验、无掉落
+            game_data.add_score_only(score);
+        } else {
+            game_data.add_score(score);
+            // 2% 概率掉落金币
+            let mut rng = rand::rng();
+            if rng.random_bool(0.02) {
+                use crate::entities::shield::{spawn_power_up, PowerUpType};
+                spawn_power_up(commands, position, PowerUpType::Coin);
+            }
         }
     }
 }

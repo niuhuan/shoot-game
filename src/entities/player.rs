@@ -31,6 +31,12 @@ impl Plugin for PlayerPlugin {
                 Update,
                 reset_drag_state_when_upgrading.run_if(in_state(GameState::Playing)),
             )
+            // 纯视觉效果，不应被 upgrading 暂停（避免累积/卡住）
+            .add_systems(
+                Update,
+                (update_effect_lifetimes, update_blink_effects).run_if(in_state(GameState::Playing)),
+            )
+            .add_systems(Update, update_low_hp_indicator.run_if(in_state(GameState::Playing)))
             .add_systems(
                 Update,
                 (
@@ -43,7 +49,6 @@ impl Plugin for PlayerPlugin {
                     update_homing_missiles,
                     resolve_lightning_casts,
                     handle_player_bullet_vs_enemy_bullet,
-                    update_effect_lifetimes,
                     player_collision_handler,
                     update_invincibility,
                 )
@@ -85,6 +90,10 @@ pub struct DragState {
     pub last_position: Option<Vec2>,
 }
 
+/// 低血量（1HP）提示：战机轻微红色闪烁
+#[derive(Component)]
+struct LowHpIndicator;
+
 /// 自动发射计时器
 #[derive(Resource)]
 pub struct AutoShootTimer {
@@ -124,6 +133,69 @@ fn spawn_player(mut commands: Commands, config: Res<GameConfig>, existing: Query
     ));
 
     log::info!("Player spawned");
+}
+
+fn update_low_hp_indicator(
+    mut commands: Commands,
+    game_data: Res<GameData>,
+    player_query: Query<Entity, With<Player>>,
+    indicator_query: Query<Entity, With<LowHpIndicator>>,
+) {
+    let Ok(player_entity) = player_query.single() else {
+        // 没玩家时清理残留
+        for e in indicator_query.iter() {
+            commands.entity(e).despawn();
+        }
+        return;
+    };
+
+    if game_data.lives != 1 {
+        for e in indicator_query.iter() {
+            commands.entity(e).despawn();
+        }
+        return;
+    }
+
+    if !indicator_query.is_empty() {
+        return;
+    }
+
+    // 在玩家身上挂一个半透明红色“警示罩”，低频闪烁
+    use crate::geometry::{CollisionShape, GeometryShape, ShapeColor, Vec2D};
+    let blueprint = GeometryBlueprint {
+        name: "low_hp_indicator".to_string(),
+        shapes: vec![
+            GeometryShape::Circle {
+                center: Vec2D::ZERO,
+                radius: 26.0,
+                color: ShapeColor::new(1.0, 0.1, 0.1, 0.18),
+                fill: true,
+                stroke_width: 1.0,
+            },
+            GeometryShape::Circle {
+                center: Vec2D::ZERO,
+                radius: 28.0,
+                color: ShapeColor::new(1.0, 0.2, 0.2, 0.22),
+                fill: false,
+                stroke_width: 2.0,
+            },
+        ],
+        collision: CollisionShape::Circle { radius: 0.0 },
+        scale: 1.0,
+    };
+
+    let entity = spawn_geometry_entity(&mut commands, &blueprint, Vec3::ZERO);
+    commands.entity(entity).insert((
+        LowHpIndicator,
+        BlinkEffect {
+            remaining: 1_000_000.0,
+            period: 2.6,
+            on_time: 0.28,
+            phase: 0.0,
+        },
+        Transform::from_translation(Vec3::new(0.0, 0.0, 40.0)),
+    ));
+    commands.entity(player_entity).add_child(entity);
 }
 
 /// 销毁玩家
@@ -413,6 +485,7 @@ fn update_rocket_bullets(
     time: Res<Time>,
     config: Res<GameConfig>,
     mut rocket_query: Query<(Entity, &mut Transform, &mut WeaponBullet, &mut RocketBullet)>,
+    boss_state: Res<super::BossState>,
     mut enemy_set: ParamSet<(
         // 明确排除 RocketBullet，确保与 rocket_query 的 Transform 可变借用不重叠（B0001）
         Query<(Entity, &Transform), (With<Enemy>, Without<RocketBullet>)>,
@@ -485,13 +558,16 @@ fn update_rocket_bullets(
                             .map(|(_, t)| t.translation)
                             .unwrap_or(transform.translation);
                         commands.entity(enemy_entity).despawn();
-                        game_data.add_score(score);
-                        
-                        // 2% 概率掉落金币
-                        let mut rng = rand::rng();
-                        if rng.random_bool(0.02) {
-                            use crate::entities::shield::{spawn_power_up, PowerUpType};
-                            spawn_power_up(&mut commands, position, PowerUpType::Coin);
+                        if boss_state.active {
+                            game_data.add_score_only(score);
+                        } else {
+                            game_data.add_score(score);
+                            // 2% 概率掉落金币
+                            let mut rng = rand::rng();
+                            if rng.random_bool(0.02) {
+                                use crate::entities::shield::{spawn_power_up, PowerUpType};
+                                spawn_power_up(&mut commands, position, PowerUpType::Coin);
+                            }
                         }
                     }
                 }
@@ -664,6 +740,75 @@ fn resolve_lightning_casts(
     mut boss_state: ResMut<BossState>,
     mut game_data: ResMut<GameData>,
 ) {
+    fn lightning_shapes_for_path(path: &[(Vec2, Vec2)]) -> Vec<crate::geometry::GeometryShape> {
+        use crate::geometry::{GeometryShape, ShapeColor, Vec2D};
+        use rand::Rng;
+
+        let mut rng = rand::rng();
+        let mut shapes = Vec::new();
+
+        for (a, b) in path.iter().copied() {
+            let dir = (b - a).normalize_or_zero();
+            if dir == Vec2::ZERO {
+                continue;
+            }
+            let n = Vec2::new(-dir.y, dir.x); // perpendicular
+            let dist = a.distance(b);
+            let steps = ((dist / 18.0).ceil() as i32).clamp(5, 10);
+
+            let mut points: Vec<Vec2> = Vec::with_capacity((steps + 1) as usize);
+            points.push(a);
+
+            for i in 1..steps {
+                let t = i as f32 / steps as f32;
+                let base = a.lerp(b, t);
+                // 两端偏移更小，中间更大
+                let taper = (1.0 - (t - 0.5).abs() * 2.0).clamp(0.0, 1.0);
+                let offset = rng.random_range(-8.0..8.0) * taper;
+                points.push(base + n * offset);
+            }
+            points.push(b);
+
+            for w in 0..3 {
+                let (stroke_width, color) = match w {
+                    // 外层柔光
+                    0 => (5.0, ShapeColor::new(0.55, 0.75, 1.0, 0.12)),
+                    // 中层
+                    1 => (3.0, ShapeColor::new(0.75, 0.85, 1.0, 0.18)),
+                    // 内芯
+                    _ => (1.6, ShapeColor::new(0.95, 0.98, 1.0, 0.35)),
+                };
+
+                for win in points.windows(2) {
+                    let p0 = win[0];
+                    let p1 = win[1];
+                    shapes.push(GeometryShape::Line {
+                        start: Vec2D::new(p0.x, p0.y),
+                        end: Vec2D::new(p1.x, p1.y),
+                        color,
+                        stroke_width,
+                    });
+                }
+            }
+
+            // 少量“分叉”
+            if rng.random_bool(0.55) {
+                let mid = a.lerp(b, rng.random_range(0.35..0.65));
+                let branch_dir = (dir + n * rng.random_range(-0.9..0.9)).normalize_or_zero();
+                let branch_len = rng.random_range(10.0..18.0);
+                let end = mid + branch_dir * branch_len;
+                shapes.push(GeometryShape::Line {
+                    start: Vec2D::new(mid.x, mid.y),
+                    end: Vec2D::new(end.x, end.y),
+                    color: ShapeColor::new(0.9, 0.95, 1.0, 0.18),
+                    stroke_width: 1.4,
+                });
+            }
+        }
+
+        shapes
+    }
+
     for (cast_entity, cast_transform, cast) in casts.iter_mut() {
         let mut current = cast_transform.translation.truncate();
         let mut remaining = cast.jumps;
@@ -728,13 +873,16 @@ fn resolve_lightning_casts(
                     let score = enemy.score_value;
                     let position = Vec3::new(enemy_pos.x, enemy_pos.y, 0.0);
                     commands.entity(*enemy_entity).despawn();
-                    game_data.add_score(score);
-                    
-                    // 2% 概率掉落金币
-                    let mut rng = rand::rng();
-                    if rng.random_bool(0.02) {
-                        use crate::entities::shield::{spawn_power_up, PowerUpType};
-                        spawn_power_up(&mut commands, position, PowerUpType::Coin);
+                    if boss_state.active {
+                        game_data.add_score_only(score);
+                    } else {
+                        game_data.add_score(score);
+                        // 2% 概率掉落金币
+                        let mut rng = rand::rng();
+                        if rng.random_bool(0.02) {
+                            use crate::entities::shield::{spawn_power_up, PowerUpType};
+                            spawn_power_up(&mut commands, position, PowerUpType::Coin);
+                        }
                     }
                 }
             } else if let Ok(mut boss) = boss_set.p1().get_mut(*enemy_entity) {
@@ -753,19 +901,8 @@ fn resolve_lightning_casts(
 
         // 生成视觉效果（线段）
         if !segments.is_empty() {
-            use crate::geometry::{
-                spawn_geometry_entity, CollisionShape, GeometryBlueprint, GeometryShape,
-                ShapeColor, Vec2D,
-            };
-            let shapes: Vec<GeometryShape> = segments
-                .iter()
-                .map(|(a, b)| GeometryShape::Line {
-                    start: Vec2D::new(a.x, a.y),
-                    end: Vec2D::new(b.x, b.y),
-                    color: ShapeColor::new(0.75, 0.75, 1.0, 0.8),
-                    stroke_width: 3.0,
-                })
-                .collect();
+            use crate::geometry::{spawn_geometry_entity, CollisionShape, GeometryBlueprint, GeometryShape};
+            let shapes: Vec<GeometryShape> = lightning_shapes_for_path(&segments);
 
             let blueprint = GeometryBlueprint {
                 name: "lightning_fx".to_string(),
@@ -777,7 +914,15 @@ fn resolve_lightning_casts(
             let fx_entity = spawn_geometry_entity(&mut commands, &blueprint, Vec3::ZERO);
             commands
                 .entity(fx_entity)
-                .insert(EffectLifetime { remaining: 0.12 });
+                .insert((
+                    BlinkEffect {
+                        remaining: 0.22,
+                        period: 0.10,
+                        on_time: 0.06,
+                        phase: 0.0,
+                    },
+                    EffectLifetime { remaining: 0.22 },
+                ));
         }
 
         commands.entity(cast_entity).despawn();
@@ -824,6 +969,31 @@ fn update_effect_lifetimes(
     }
 }
 
+fn update_blink_effects(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut query: Query<(Entity, &mut BlinkEffect, &mut Visibility)>,
+) {
+    let delta = time.delta_secs();
+    for (entity, mut blink, mut visibility) in query.iter_mut() {
+        blink.remaining -= delta;
+        blink.phase += delta;
+        if blink.phase >= blink.period {
+            blink.phase -= blink.period;
+        }
+
+        *visibility = if blink.phase <= blink.on_time {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
+
+        if blink.remaining <= 0.0 {
+            commands.entity(entity).despawn();
+        }
+    }
+}
+
 // explode_at 已内联到 update_rocket_bullets，避免 Query 冲突（B0001）
 
 /// 处理玩家碰撞
@@ -834,6 +1004,7 @@ fn player_collision_handler(
     mut next_state: ResMut<NextState<GameState>>,
     mut player_query: Query<&mut Player>,
     power_up_query: Query<&crate::entities::shield::PowerUp>,
+    transforms: Query<&Transform>,
 ) {
     for event in collision_events.read() {
         // 检查是否涉及玩家
@@ -873,6 +1044,13 @@ fn player_collision_handler(
 
         match other_layer {
             CollisionLayer::Enemy | CollisionLayer::EnemyBullet => {
+                // 命中火花：优先取子弹/敌人位置，否则退化为玩家位置
+                let spark_pos = transforms
+                    .get(player_entity)
+                    .map(|t| t.translation)
+                    .unwrap_or_default();
+                crate::entities::spawn_hit_sparks(&mut commands, spark_pos);
+
                 // 玩家受伤 - 先扣护盾，再扣血
                 if game_data.shield > 0 {
                     game_data.shield -= 1;

@@ -743,6 +743,214 @@ impl GeometryBlueprint {
         }
     }
 
+    /// 精英敌人：侦察机（大体积、精巧、慢速）
+    pub fn elite_scout() -> Self {
+        Self {
+            name: "elite_scout".to_string(),
+            shapes: vec![
+                // 机身（细长）
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(0.0, 28.0),
+                        Vec2D::new(-10.0, 16.0),
+                        Vec2D::new(-14.0, -6.0),
+                        Vec2D::new(-8.0, -28.0),
+                        Vec2D::new(8.0, -28.0),
+                        Vec2D::new(14.0, -6.0),
+                        Vec2D::new(10.0, 16.0),
+                    ],
+                    color: ShapeColor::new(0.25, 0.75, 1.0, 1.0),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
+                // 座舱
+                GeometryShape::Circle {
+                    center: Vec2D::new(0.0, 10.0),
+                    radius: 6.0,
+                    color: ShapeColor::new(0.9, 0.98, 1.0, 0.65),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
+                // 主翼（前窄后宽）
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(-18.0, 8.0),
+                        Vec2D::new(-10.0, 6.0),
+                        Vec2D::new(-8.0, -8.0),
+                        Vec2D::new(-34.0, -16.0),
+                    ],
+                    color: ShapeColor::new(0.10, 0.35, 0.55, 1.0),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(18.0, 8.0),
+                        Vec2D::new(10.0, 6.0),
+                        Vec2D::new(8.0, -8.0),
+                        Vec2D::new(34.0, -16.0),
+                    ],
+                    color: ShapeColor::new(0.10, 0.35, 0.55, 1.0),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
+                // 双尾翼
+                GeometryShape::Polygon {
+                    vertices: vec![Vec2D::new(-8.0, -6.0), Vec2D::new(-2.0, -6.0), Vec2D::new(-6.0, -22.0)],
+                    color: ShapeColor::new(0.12, 0.16, 0.22, 1.0),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
+                GeometryShape::Polygon {
+                    vertices: vec![Vec2D::new(8.0, -6.0), Vec2D::new(2.0, -6.0), Vec2D::new(6.0, -22.0)],
+                    color: ShapeColor::new(0.12, 0.16, 0.22, 1.0),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
+                // 喷口辉光
+                GeometryShape::Circle {
+                    center: Vec2D::new(0.0, -30.0),
+                    radius: 6.0,
+                    color: ShapeColor::new(0.15, 0.95, 0.85, 0.6),
+                    fill: false,
+                    stroke_width: 3.0,
+                },
+            ],
+            collision: CollisionShape::Circle { radius: 26.0 },
+            scale: 1.0,
+        }
+    }
+
+    /// 精英敌人：炮艇（更宽的挂舱、更高火力）
+    pub fn elite_gunship() -> Self {
+        Self {
+            name: "elite_gunship".to_string(),
+            shapes: vec![
+                // 机身
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(0.0, 26.0),
+                        Vec2D::new(-14.0, 12.0),
+                        Vec2D::new(-18.0, -10.0),
+                        Vec2D::new(-10.0, -30.0),
+                        Vec2D::new(10.0, -30.0),
+                        Vec2D::new(18.0, -10.0),
+                        Vec2D::new(14.0, 12.0),
+                    ],
+                    color: ShapeColor::new(1.0, 0.65, 0.15, 1.0),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
+                // 装甲条纹
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(-5.0, 22.0),
+                        Vec2D::new(5.0, 22.0),
+                        Vec2D::new(8.0, -26.0),
+                        Vec2D::new(-8.0, -26.0),
+                    ],
+                    color: ShapeColor::new(0.10, 0.12, 0.16, 0.55),
+                    fill: true,
+                    stroke_width: 1.0,
+                },
+                // 挂舱（左右）
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(-44.0, 8.0),
+                        Vec2D::new(-20.0, 6.0),
+                        Vec2D::new(-18.0, -18.0),
+                        Vec2D::new(-40.0, -20.0),
+                    ],
+                    color: ShapeColor::new(0.65, 0.35, 0.05, 1.0),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(44.0, 8.0),
+                        Vec2D::new(20.0, 6.0),
+                        Vec2D::new(18.0, -18.0),
+                        Vec2D::new(40.0, -20.0),
+                    ],
+                    color: ShapeColor::new(0.65, 0.35, 0.05, 1.0),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
+                // 核心灯
+                GeometryShape::Circle {
+                    center: Vec2D::new(0.0, 8.0),
+                    radius: 5.0,
+                    color: ShapeColor::new(1.0, 1.0, 0.2, 1.0),
+                    fill: true,
+                    stroke_width: 1.0,
+                },
+                // 双喷口
+                GeometryShape::Circle {
+                    center: Vec2D::new(-8.0, -32.0),
+                    radius: 5.0,
+                    color: ShapeColor::new(0.2, 0.9, 1.0, 0.6),
+                    fill: false,
+                    stroke_width: 3.0,
+                },
+                GeometryShape::Circle {
+                    center: Vec2D::new(8.0, -32.0),
+                    radius: 5.0,
+                    color: ShapeColor::new(0.2, 0.9, 1.0, 0.6),
+                    fill: false,
+                    stroke_width: 3.0,
+                },
+            ],
+            collision: CollisionShape::Circle { radius: 30.0 },
+            scale: 1.0,
+        }
+    }
+
+    /// 精英敌人：守卫机（圆环护罩+机身）
+    pub fn elite_guard() -> Self {
+        Self {
+            name: "elite_guard".to_string(),
+            shapes: vec![
+                GeometryShape::Circle {
+                    center: Vec2D::ZERO,
+                    radius: 30.0,
+                    color: ShapeColor::new(0.9, 0.25, 0.85, 0.16),
+                    fill: false,
+                    stroke_width: 4.0,
+                },
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(0.0, 24.0),
+                        Vec2D::new(-14.0, 10.0),
+                        Vec2D::new(-18.0, -8.0),
+                        Vec2D::new(-10.0, -26.0),
+                        Vec2D::new(10.0, -26.0),
+                        Vec2D::new(18.0, -8.0),
+                        Vec2D::new(14.0, 10.0),
+                    ],
+                    color: ShapeColor::new(0.55, 0.2, 0.95, 1.0),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
+                GeometryShape::Circle {
+                    center: Vec2D::new(0.0, 6.0),
+                    radius: 5.0,
+                    color: ShapeColor::new(0.9, 0.98, 1.0, 0.55),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
+                GeometryShape::Circle {
+                    center: Vec2D::new(0.0, -28.0),
+                    radius: 6.5,
+                    color: ShapeColor::new(0.15, 0.95, 0.85, 0.55),
+                    fill: false,
+                    stroke_width: 3.0,
+                },
+            ],
+            collision: CollisionShape::Circle { radius: 30.0 },
+            scale: 1.0,
+        }
+    }
+
     /// 创建护盾蓝图
     pub fn default_shield() -> Self {
         Self {

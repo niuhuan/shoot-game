@@ -142,7 +142,7 @@ fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>, save_data:
                 },
             ));
 
-            // 金币和充值按钮（同一行）
+            // 金币和打赏按钮（同一行）
             parent.spawn((
                 Node {
                     flex_direction: FlexDirection::Row,
@@ -169,7 +169,7 @@ fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>, save_data:
                     },
                 ));
 
-                // 充值按钮（文本样式，小字体，带下划线）
+                // 打赏按钮（文本样式，小字体，带下划线）
                 parent.spawn((
                     Button,
                     Node {
@@ -189,7 +189,7 @@ fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>, save_data:
                         })
                         .with_children(|parent| {
                             parent.spawn((
-                                Text::new("充值"),
+                                Text::new("打赏"),
                                 TextFont {
                                     font: font.clone(),
                                     font_size: 14.0,

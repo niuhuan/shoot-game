@@ -230,6 +230,15 @@ pub struct EffectLifetime {
     pub remaining: f32,
 }
 
+/// 闪烁特效：用于“低频白闪”等
+#[derive(Component)]
+pub struct BlinkEffect {
+    pub remaining: f32,
+    pub period: f32,
+    pub on_time: f32,
+    pub phase: f32,
+}
+
 /// 霰弹枪子弹 - 空心环
 #[derive(Component)]
 pub struct ShotgunPellet {
@@ -324,6 +333,63 @@ pub fn spawn_rocket_explosion_particles(
             lifetime: rng.random_range(0.18..0.42),
         });
     }
+}
+
+/// 命中火花：用少量半透明黄/橙“丝状线条”表示
+pub fn spawn_hit_sparks(commands: &mut Commands, position: Vec3) {
+    let mut rng = rand::rng();
+    let count = rng.random_range(5..=8);
+    let mut shapes = Vec::with_capacity(count);
+
+    for i in 0..count {
+        let angle = rng.random_range(0.0..std::f32::consts::TAU);
+        let len = rng.random_range(10.0..16.0);
+        let (r, g, b) = if i % 2 == 0 {
+            (1.0, 0.85, 0.2) // yellow
+        } else {
+            (1.0, 0.55, 0.15) // orange
+        };
+        shapes.push(GeometryShape::Line {
+            start: Vec2D::ZERO,
+            end: Vec2D::new(angle.cos() * len, angle.sin() * len),
+            color: ShapeColor::new(r, g, b, 0.55),
+            stroke_width: 1.3,
+        });
+    }
+
+    let blueprint = GeometryBlueprint {
+        name: "hit_sparks".to_string(),
+        shapes,
+        collision: CollisionShape::Circle { radius: 0.0 },
+        scale: 1.0,
+    };
+
+    let entity = spawn_geometry_entity(commands, &blueprint, position + Vec3::new(0.0, 0.0, 60.0));
+    commands.entity(entity).insert(EffectLifetime { remaining: 0.14 });
+}
+
+/// Boss 受击闪光：低频白闪，透明度很低
+pub fn spawn_boss_hit_flash(commands: &mut Commands, position: Vec3) {
+    let blueprint = GeometryBlueprint {
+        name: "boss_hit_flash".to_string(),
+        shapes: vec![GeometryShape::Circle {
+            center: Vec2D::ZERO,
+            radius: 22.0,
+            color: ShapeColor::new(1.0, 1.0, 1.0, 0.10),
+            fill: true,
+            stroke_width: 1.0,
+        }],
+        collision: CollisionShape::Circle { radius: 0.0 },
+        scale: 1.0,
+    };
+
+    let entity = spawn_geometry_entity(commands, &blueprint, position + Vec3::new(0.0, 0.0, 55.0));
+    commands.entity(entity).insert(BlinkEffect {
+        remaining: 0.75,
+        period: 0.35,
+        on_time: 0.16,
+        phase: 0.0,
+    });
 }
 
 /// 闪电链：一次性施放请求（由系统解析并结算伤害）
@@ -430,9 +496,10 @@ pub fn spawn_laser(commands: &mut Commands, position: Vec3, level: u32) {
     // 激光（L）：发射可移动的“长条”穿透弹，而不是瞬间删除的光束
     let laser_count = 1 + (level - 1) / 2; // lv1: 1, lv3: 2, lv5: 3
     let spacing = 25.0;
-    let length = 210.0;
+    // 视觉上更短，减少遮挡
+    let length = 150.0;
     // 视觉上更细，避免遮挡视线；碰撞宽度也同步收窄
-    let width = 6.0 + level as f32 * 1.0; // lv1: 7, lv5: 11
+    let width = 4.0 + level as f32 * 0.7; // lv1: 4.7, lv5: 7.5
     let speed = 600.0; // 加快速度
 
     for i in 0..laser_count {
@@ -443,7 +510,7 @@ pub fn spawn_laser(commands: &mut Commands, position: Vec3, level: u32) {
         };
 
         // 两层：外层淡光（更透明）+ 内层亮芯（更细）
-        let core_width = (width * 0.45).max(2.0);
+        let core_width = (width * 0.40).max(1.8);
         let blueprint = GeometryBlueprint {
             name: "laser".to_string(),
             shapes: vec![
@@ -454,7 +521,7 @@ pub fn spawn_laser(commands: &mut Commands, position: Vec3, level: u32) {
                         Vec2D::new(width * 0.5, length * 0.5),
                         Vec2D::new(-width * 0.5, length * 0.5),
                     ],
-                    color: ShapeColor::new(0.25, 1.0, 0.45, 0.18),
+                    color: ShapeColor::new(0.25, 1.0, 0.45, 0.12),
                     fill: true,
                     stroke_width: 1.0,
                 },
@@ -465,7 +532,7 @@ pub fn spawn_laser(commands: &mut Commands, position: Vec3, level: u32) {
                         Vec2D::new(core_width * 0.5, length * 0.5),
                         Vec2D::new(-core_width * 0.5, length * 0.5),
                     ],
-                    color: ShapeColor::new(0.75, 1.0, 0.85, 0.28),
+                    color: ShapeColor::new(0.75, 1.0, 0.85, 0.18),
                     fill: true,
                     stroke_width: 1.0,
                 },

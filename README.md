@@ -10,7 +10,7 @@
 - **自动卷轴**: 由下到上的自动滚动视角
 - **跨平台**: 支持原生桌面和 Web 浏览器
 - **数据持久化**: 使用浏览器 LocalStorage 保存游戏进度
-- **充值系统**: 支持 HTTP 请求的充值功能
+- **打赏系统**: 支持 HTTP 请求的打赏功能
 
 ## 🎮 操作方式
 
@@ -82,7 +82,7 @@ shoot/
 │   │   └── shield.rs    # 护盾
 │   ├── storage/         # 存储系统
 │   │   ├── web_storage.rs # LocalStorage
-│   │   └── recharge.rs  # 充值系统
+│   │   └── recharge.rs  # 打赏系统
 │   └── ui/              # 用户界面
 │       ├── menu.rs      # 菜单
 │       ├── hud.rs       # HUD
@@ -120,7 +120,7 @@ struct GeometryBlueprint {
 
 ## 🌐 WASM 文字输入
 
-对于充值码输入（100字符），采用 HTML 覆盖层方案：
+对于打赏码输入（100字符），采用 HTML 覆盖层方案：
 
 1. 在 WASM 中触发显示输入框
 2. 使用浏览器原生 `<input>` 元素
