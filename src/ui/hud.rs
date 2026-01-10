@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use bevy::state::prelude::DespawnOnExit;
 
 use crate::game::{GameData, GameState};
+use crate::entities::{Player, WeaponInventory, WeaponType};
 
 /// HUD 插件
 pub struct HudPlugin;
@@ -34,6 +35,22 @@ struct LivesText;
 /// 金币文本标记
 #[derive(Component)]
 struct CoinsText;
+
+/// 护盾文本标记
+#[derive(Component)]
+struct ShieldText;
+
+/// 经验值条标记
+#[derive(Component)]
+struct ExpBarText;
+
+/// 武器列表标记
+#[derive(Component)]
+struct WeaponsText;
+
+/// 等级文本标记
+#[derive(Component)]
+struct LevelText;
 
 /// 设置 HUD
 fn setup_hud(
@@ -67,42 +84,116 @@ fn setup_hud(
                     },
                 ))
                 .with_children(|parent| {
-                    // 左侧：分数
+                    // 左侧：分数和等级
                     parent.spawn((
-                        Text::new("分数: 0"),
-                        TextFont {
-                            font: font.clone(),
-                            font_size: 24.0,
+                        Node {
+                            flex_direction: FlexDirection::Column,
                             ..default()
                         },
-                        TextColor(Color::WHITE),
-                        ScoreText,
-                    ));
+                    )).with_children(|parent| {
+                        parent.spawn((
+                            Text::new("分数: 0"),
+                            TextFont {
+                                font: font.clone(),
+                                font_size: 24.0,
+                                ..default()
+                            },
+                            TextColor(Color::WHITE),
+                            ScoreText,
+                        ));
+                        parent.spawn((
+                            Text::new("等级: 1"),
+                            TextFont {
+                                font: font.clone(),
+                                font_size: 20.0,
+                                ..default()
+                            },
+                            TextColor(Color::srgb(0.5, 1.0, 0.5)),
+                            LevelText,
+                        ));
+                    });
                     
-                    // 中间：金币
+                    // 中间：金币和经验条
                     parent.spawn((
-                        Text::new("金币: 0"),
-                        TextFont {
-                            font: font.clone(),
-                            font_size: 24.0,
+                        Node {
+                            flex_direction: FlexDirection::Column,
+                            align_items: AlignItems::Center,
                             ..default()
                         },
-                        TextColor(Color::srgb(1.0, 0.85, 0.0)),
-                        CoinsText,
-                    ));
+                    )).with_children(|parent| {
+                        parent.spawn((
+                            Text::new("金币: 0"),
+                            TextFont {
+                                font: font.clone(),
+                                font_size: 24.0,
+                                ..default()
+                            },
+                            TextColor(Color::srgb(1.0, 0.85, 0.0)),
+                            CoinsText,
+                        ));
+                        parent.spawn((
+                            Text::new("经验: [----------]"),
+                            TextFont {
+                                font: font.clone(),
+                                font_size: 16.0,
+                                ..default()
+                            },
+                            TextColor(Color::srgb(0.7, 0.7, 1.0)),
+                            ExpBarText,
+                        ));
+                    });
                     
-                    // 右侧：生命值
+                    // 右侧：生命值和护盾
                     parent.spawn((
-                        Text::new("❤️❤️❤️"),
-                        TextFont {
-                            font: font.clone(),
-                            font_size: 24.0,
+                        Node {
+                            flex_direction: FlexDirection::Column,
+                            align_items: AlignItems::End,
                             ..default()
                         },
-                        TextColor(Color::srgb(1.0, 0.3, 0.3)),
-                        LivesText,
-                    ));
+                    )).with_children(|parent| {
+                        parent.spawn((
+                            Text::new("生命: ♥♥♥"),
+                            TextFont {
+                                font: font.clone(),
+                                font_size: 24.0,
+                                ..default()
+                            },
+                            TextColor(Color::srgb(1.0, 0.3, 0.3)),
+                            LivesText,
+                        ));
+                        parent.spawn((
+                            Text::new("护盾: "),
+                            TextFont {
+                                font: font.clone(),
+                                font_size: 20.0,
+                                ..default()
+                            },
+                            TextColor(Color::srgb(0.3, 0.7, 1.0)),
+                            ShieldText,
+                        ));
+                    });
                 });
+            
+            // 底部武器栏
+            parent.spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    bottom: Val::Px(10.0),
+                    left: Val::Px(10.0),
+                    ..default()
+                },
+            )).with_children(|parent| {
+                parent.spawn((
+                    Text::new("武器: 无"),
+                    TextFont {
+                        font: font.clone(),
+                        font_size: 18.0,
+                        ..default()
+                    },
+                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                    WeaponsText,
+                ));
+            });
         });
 }
 
@@ -119,24 +210,78 @@ fn cleanup_hud(
 /// 更新 HUD
 fn update_hud(
     game_data: Res<GameData>,
-    mut score_query: Query<&mut Text, (With<ScoreText>, Without<LivesText>, Without<CoinsText>)>,
-    mut lives_query: Query<&mut Text, (With<LivesText>, Without<ScoreText>, Without<CoinsText>)>,
-    mut coins_query: Query<&mut Text, (With<CoinsText>, Without<ScoreText>, Without<LivesText>)>,
+    player_query: Query<&WeaponInventory, With<Player>>,
+    mut score_query: Query<&mut Text, (With<ScoreText>, Without<LivesText>, Without<CoinsText>, Without<ShieldText>, Without<ExpBarText>, Without<WeaponsText>, Without<LevelText>)>,
+    mut lives_query: Query<&mut Text, (With<LivesText>, Without<ScoreText>, Without<CoinsText>, Without<ShieldText>, Without<ExpBarText>, Without<WeaponsText>, Without<LevelText>)>,
+    mut coins_query: Query<&mut Text, (With<CoinsText>, Without<ScoreText>, Without<LivesText>, Without<ShieldText>, Without<ExpBarText>, Without<WeaponsText>, Without<LevelText>)>,
+    mut shield_query: Query<&mut Text, (With<ShieldText>, Without<ScoreText>, Without<LivesText>, Without<CoinsText>, Without<ExpBarText>, Without<WeaponsText>, Without<LevelText>)>,
+    mut exp_query: Query<&mut Text, (With<ExpBarText>, Without<ScoreText>, Without<LivesText>, Without<CoinsText>, Without<ShieldText>, Without<WeaponsText>, Without<LevelText>)>,
+    mut weapons_query: Query<&mut Text, (With<WeaponsText>, Without<ScoreText>, Without<LivesText>, Without<CoinsText>, Without<ShieldText>, Without<ExpBarText>, Without<LevelText>)>,
+    mut level_query: Query<&mut Text, (With<LevelText>, Without<ScoreText>, Without<LivesText>, Without<CoinsText>, Without<ShieldText>, Without<ExpBarText>, Without<WeaponsText>)>,
 ) {
     // 更新分数
     if let Ok(mut text) = score_query.single_mut() {
         **text = format!("分数: {}", game_data.score);
     }
     
-    // 更新生命值
+    // 更新等级
+    if let Ok(mut text) = level_query.single_mut() {
+        **text = format!("等级: {}", game_data.player_level);
+    }
+    
+    // 更新生命值 - 使用简单文字代替 emoji
     if let Ok(mut text) = lives_query.single_mut() {
-        let hearts = "❤️".repeat(game_data.lives as usize);
-        let empty = "💔".repeat(3_usize.saturating_sub(game_data.lives as usize));
-        **text = format!("{}{}", hearts, empty);
+        let max_lives = game_data.max_lives;
+        let hearts = "♥".repeat(game_data.lives as usize);
+        let empty = "○".repeat(max_lives.saturating_sub(game_data.lives) as usize);
+        **text = format!("生命: {}{}", hearts, empty);
+    }
+    
+    // 更新护盾
+    if let Ok(mut text) = shield_query.single_mut() {
+        if game_data.max_shield > 0 {
+            let shields = "◆".repeat(game_data.shield as usize);
+            let empty = "◇".repeat(game_data.max_shield.saturating_sub(game_data.shield) as usize);
+            **text = format!("护盾: {}{}", shields, empty);
+        } else {
+            **text = "护盾: 无".to_string();
+        }
     }
     
     // 更新金币
     if let Ok(mut text) = coins_query.single_mut() {
         **text = format!("金币: {}", game_data.coins);
+    }
+    
+    // 更新经验条
+    if let Ok(mut text) = exp_query.single_mut() {
+        let exp_needed = GameData::exp_for_level(game_data.player_level);
+        let progress = (game_data.experience as f32 / exp_needed as f32 * 10.0).min(10.0) as usize;
+        let filled = "█".repeat(progress);
+        let empty = "░".repeat(10 - progress);
+        **text = format!("经验: [{}{}] {}/{}", filled, empty, game_data.experience, exp_needed);
+    }
+    
+    // 更新武器列表
+    if let Ok(mut text) = weapons_query.single_mut() {
+        if let Ok(inventory) = player_query.single() {
+            if inventory.weapons.is_empty() {
+                **text = "武器: 默认子弹".to_string();
+            } else {
+                let weapons_str: Vec<String> = inventory.weapons.iter().map(|w| {
+                    let name = match w.weapon_type {
+                        WeaponType::Shotgun => "霰",
+                        WeaponType::Rocket => "导",
+                        WeaponType::Laser => "激",
+                        WeaponType::Homing => "追",
+                        WeaponType::Lightning => "电",
+                        WeaponType::Aura => "球",
+                        WeaponType::Beam => "波",
+                    };
+                    format!("{}Lv{}", name, w.level)
+                }).collect();
+                **text = format!("武器: {}", weapons_str.join(" "));
+            }
+        }
     }
 }

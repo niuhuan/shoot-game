@@ -3,8 +3,9 @@
 use bevy::prelude::*;
 use rand::Rng;
 
-use crate::game::{Collider, CollisionEvent, CollisionLayer, CollisionMask, GameConfig, GameData, GameState, Scrollable};
+use crate::game::{not_upgrading, Collider, CollisionEvent, CollisionLayer, CollisionMask, GameConfig, GameData, GameState, Scrollable};
 use crate::geometry::{spawn_geometry_entity, GeometryBlueprint};
+use crate::entities::{spawn_rocket_explosion_particles, Bullet, HitList, Pierce, RocketBullet, WeaponBullet, WeaponType};
 
 /// 敌人插件
 pub struct EnemyPlugin;
@@ -21,7 +22,9 @@ impl Plugin for EnemyPlugin {
                     enemy_shooting,
                     enemy_collision_handler,
                     despawn_offscreen_enemies,
-                ).run_if(in_state(GameState::Playing)),
+                )
+                    .run_if(in_state(GameState::Playing))
+                    .run_if(not_upgrading),
             );
     }
 }
@@ -236,7 +239,16 @@ fn enemy_collision_handler(
     mut commands: Commands,
     mut collision_events: MessageReader<CollisionEvent>,
     mut game_data: ResMut<GameData>,
-    mut enemy_query: Query<&mut Enemy>,
+    mut enemy_set: ParamSet<(
+        Query<(Entity, &Transform), With<Enemy>>,
+        Query<&mut Enemy>,
+    )>,
+    bullets: Query<&Bullet>,
+    weapon_bullets: Query<&WeaponBullet>,
+    mut pierce: Query<&mut Pierce>,
+    mut hit_list: Query<&mut HitList>,
+    rockets: Query<&RocketBullet>,
+    transforms: Query<&Transform>,
 ) {
     for event in collision_events.read() {
         // 检查是否涉及敌人
@@ -267,22 +279,114 @@ fn enemy_collision_handler(
         
         match other_layer {
             CollisionLayer::PlayerBullet => {
-                // 敌人被击中
-                if let Ok(mut enemy) = enemy_query.get_mut(enemy_entity) {
-                    enemy.health -= 1;
-                    
-                    // 销毁子弹
+                // 确定伤害与子弹类型
+                if let Ok(bullet) = bullets.get(other_entity) {
+                    apply_direct_damage(
+                        &mut commands,
+                        &mut game_data,
+                        &mut enemy_set.p1(),
+                        enemy_entity,
+                        bullet.damage,
+                    );
                     commands.entity(other_entity).despawn();
-                    
-                    if enemy.health <= 0 {
-                        game_data.add_score(enemy.score_value);
-                        commands.entity(enemy_entity).despawn();
-                        log::info!("Enemy destroyed! Score: {}", game_data.score);
+                    continue;
+                }
+
+                let Ok(weapon_bullet) = weapon_bullets.get(other_entity) else {
+                    continue;
+                };
+
+                // 避免穿透/持续类武器在连续帧对同一敌人反复结算
+                if let Ok(mut hits) = hit_list.get_mut(other_entity) {
+                    if hits.entities.contains(&enemy_entity) {
+                        continue;
                     }
+                    hits.entities.push(enemy_entity);
+                }
+
+                // 导弹：命中立刻爆炸（AOE），不走单体伤害
+                if weapon_bullet.weapon_type == WeaponType::Rocket {
+                    let Ok(rocket) = rockets.get(other_entity) else {
+                        continue;
+                    };
+                    let Ok(rocket_tf) = transforms.get(other_entity) else {
+                        continue;
+                    };
+
+                    let targets: Vec<Entity> = {
+                        let center2 = rocket_tf.translation.truncate();
+                        let r2 = rocket.explosion_radius * rocket.explosion_radius;
+                        enemy_set
+                            .p0()
+                            .iter()
+                            .filter_map(|(e, t)| {
+                                (t.translation.truncate().distance_squared(center2) <= r2).then_some(e)
+                            })
+                            .collect()
+                    };
+                    for hit_enemy in targets {
+                        apply_direct_damage(
+                            &mut commands,
+                            &mut game_data,
+                            &mut enemy_set.p1(),
+                            hit_enemy,
+                            weapon_bullet.damage,
+                        );
+                    }
+                    let shard_count = ((rocket.explosion_radius / 4.0) as u32).clamp(10, 28);
+                    spawn_rocket_explosion_particles(&mut commands, rocket_tf.translation, shard_count, rocket.speed);
+                    commands.entity(other_entity).despawn();
+                    continue;
+                }
+
+                // 其它武器：结算单体伤害
+                apply_direct_damage(
+                    &mut commands,
+                    &mut game_data,
+                    &mut enemy_set.p1(),
+                    enemy_entity,
+                    weapon_bullet.damage,
+                );
+
+                // 是否需要销毁子弹（穿透则保留）
+                let mut should_despawn = true;
+                if let Ok(mut p) = pierce.get_mut(other_entity) {
+                    if p.remaining == u32::MAX {
+                        should_despawn = false;
+                    } else if p.remaining > 1 {
+                        p.remaining -= 1;
+                        should_despawn = false;
+                    } else {
+                        p.remaining = 0;
+                        should_despawn = true;
+                    }
+                }
+
+                if should_despawn {
+                    commands.entity(other_entity).despawn();
                 }
             }
             _ => {}
         }
+    }
+}
+
+fn apply_direct_damage(
+    commands: &mut Commands,
+    game_data: &mut ResMut<GameData>,
+    enemies: &mut Query<&mut Enemy>,
+    enemy_entity: Entity,
+    damage: i32,
+) {
+    let Ok(mut enemy) = enemies.get_mut(enemy_entity) else {
+        return;
+    };
+
+    enemy.health -= damage;
+    if enemy.health <= 0 {
+        let score = enemy.score_value;
+        commands.entity(enemy_entity).despawn();
+        game_data.add_score(score);
     }
 }
 

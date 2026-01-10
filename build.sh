@@ -130,7 +130,9 @@ optimize_wasm() {
     echo -e "${BLUE}🔧 优化 WASM...${NC}"
     
     if command -v wasm-opt &> /dev/null; then
-        wasm-opt -Oz -o dist/shoot_bg.wasm dist/shoot_bg.wasm
+        # 避免某些 wasm-opt 版本对“原地覆写”导致的文件损坏
+        wasm-opt -Oz -o dist/shoot_bg.opt.wasm dist/shoot_bg.wasm
+        mv dist/shoot_bg.opt.wasm dist/shoot_bg.wasm
         echo -e "${GREEN}✓ WASM 优化完成${NC}"
     else
         echo -e "${YELLOW}⚠ wasm-opt 未安装，跳过优化${NC}"

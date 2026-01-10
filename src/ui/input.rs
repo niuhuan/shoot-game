@@ -266,16 +266,11 @@ fn handle_recharge_buttons(
 fn handle_native_text_input(
     mut key_events: MessageReader<bevy::input::keyboard::KeyboardInput>,
     mut recharge_state: ResMut<RechargeState>,
-    mut username_display: Query<&mut Text, With<UsernameDisplay>>,
-    mut order_display: Query<&mut Text, With<OrderDisplay>>,
-    mut message_display: Query<
-        (&mut Text, &mut TextColor),
-        (
-            With<MessageDisplay>,
-            Without<UsernameDisplay>,
-            Without<OrderDisplay>,
-        ),
-    >,
+    mut texts: ParamSet<(
+        Query<&mut Text, With<UsernameDisplay>>,
+        Query<&mut Text, With<OrderDisplay>>,
+        Query<(&mut Text, &mut TextColor), With<MessageDisplay>>,
+    )>,
     mut next_state: ResMut<NextState<GameState>>,
 ) {
     use bevy::input::ButtonState;
@@ -343,7 +338,7 @@ fn handle_native_text_input(
     }
 
     if input_changed {
-        if let Ok(mut text) = username_display.single_mut() {
+        if let Ok(mut text) = texts.p0().single_mut() {
             let cursor = if recharge_state.active_field == RechargeField::Username {
                 "_"
             } else {
@@ -351,7 +346,7 @@ fn handle_native_text_input(
             };
             **text = format!("用户名: {}{}", recharge_state.username, cursor);
         }
-        if let Ok(mut text) = order_display.single_mut() {
+        if let Ok(mut text) = texts.p1().single_mut() {
             let cursor = if recharge_state.active_field == RechargeField::OrderId {
                 "_"
             } else {
@@ -361,7 +356,7 @@ fn handle_native_text_input(
         }
     }
 
-    if let Ok((mut text, mut color)) = message_display.single_mut() {
+    if let Ok((mut text, mut color)) = texts.p2().single_mut() {
         if let Some(msg) = &recharge_state.success_message {
             **text = msg.clone();
             *color = TextColor(Color::srgb(0.3, 1.0, 0.3));

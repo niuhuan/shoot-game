@@ -4,7 +4,7 @@ use bevy::prelude::*;
 
 use crate::geometry::CollisionShape;
 
-use super::states::GameState;
+use super::states::{not_upgrading, GameState};
 
 /// 碰撞系统插件
 pub struct CollisionPlugin;
@@ -14,7 +14,9 @@ impl Plugin for CollisionPlugin {
         app.add_message::<CollisionEvent>()
             .add_systems(
                 Update,
-                detect_collisions.run_if(in_state(GameState::Playing)),
+                detect_collisions
+                    .run_if(in_state(GameState::Playing))
+                    .run_if(not_upgrading),
             );
     }
 }

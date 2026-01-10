@@ -13,6 +13,7 @@ crate-type = ["cdylib", "rlib"]
 default = ["native"]
 native = []
 web = []
+debug = ["bevy/debug"]
 
 [dependencies]
 bevy = { version = "0.17.3", default-features = false, features = [

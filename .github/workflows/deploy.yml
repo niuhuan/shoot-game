@@ -73,7 +73,9 @@ jobs:
 
       - name: Optimize WASM
         run: |
-          wasm-opt -Oz -o dist/shoot_bg.wasm dist/shoot_bg.wasm
+          # Avoid in-place overwrite issues on some wasm-opt versions
+          wasm-opt -Oz -o dist/shoot_bg.opt.wasm dist/shoot_bg.wasm
+          mv dist/shoot_bg.opt.wasm dist/shoot_bg.wasm
 
       - name: Copy web assets
         run: |

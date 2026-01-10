@@ -14,7 +14,7 @@ use game::{CollisionPlugin, GameConfig, GameStatePlugin, ScrollPlugin};
 use geometry::GeometryRendererPlugin;
 use entities::{BulletPlugin, EnemyPlugin, PlayerPlugin, ShieldPlugin};
 use storage::{RechargePlugin, StoragePlugin};
-use ui::{HudPlugin, InputPlugin, MenuPlugin};
+use ui::{HudPlugin, InputPlugin, MenuPlugin, UpgradePlugin};
 
 /// 游戏主插件
 pub struct ShootGamePlugin;
@@ -40,6 +40,7 @@ impl Plugin for ShootGamePlugin {
             .add_plugins(MenuPlugin)
             .add_plugins(HudPlugin)
             .add_plugins(InputPlugin)
+            .add_plugins(UpgradePlugin)
             // 初始化
             .add_systems(Startup, setup_game)
             .add_systems(

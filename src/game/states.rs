@@ -34,8 +34,20 @@ pub struct GameData {
     pub level: u32,
     /// 玩家生命值
     pub lives: u32,
+    /// 玩家最大生命值
+    pub max_lives: u32,
+    /// 护盾值
+    pub shield: u32,
+    /// 最大护盾值
+    pub max_shield: u32,
     /// 游戏时间（秒）
     pub play_time: f32,
+    /// 当前经验值
+    pub experience: u32,
+    /// 战机等级
+    pub player_level: u32,
+    /// 是否正在升级选择
+    pub upgrading: bool,
 }
 
 impl GameData {
@@ -46,7 +58,13 @@ impl GameData {
             coins: 0,
             level: 1,
             lives: 3,
+            max_lives: 5,
+            shield: 0,
+            max_shield: 3,
             play_time: 0.0,
+            experience: 0,
+            player_level: 1,
+            upgrading: false,
         }
     }
 
@@ -54,7 +72,13 @@ impl GameData {
         self.score = 0;
         self.level = 1;
         self.lives = 3;
+        self.max_lives = 5;
+        self.shield = 0;
+        self.max_shield = 3;
         self.play_time = 0.0;
+        self.experience = 0;
+        self.player_level = 1;
+        self.upgrading = false;
     }
 
     pub fn add_score(&mut self, points: u32) {
@@ -62,6 +86,48 @@ impl GameData {
         if self.score > self.high_score {
             self.high_score = self.score;
         }
+        // 添加经验值
+        self.add_experience(points);
+    }
+
+    /// 计算升级所需经验值（曲线公式）
+    pub fn exp_for_level(level: u32) -> u32 {
+        // 经验曲线：base * level^1.5
+        let base = 100.0;
+        (base * (level as f32).powf(1.5)) as u32
+    }
+
+    /// 添加经验值并检查升级
+    pub fn add_experience(&mut self, exp: u32) {
+        self.experience += exp;
+        let required = Self::exp_for_level(self.player_level);
+        if self.experience >= required {
+            self.experience -= required;
+            self.player_level += 1;
+            self.upgrading = true;  // 标记需要升级选择
+            log::info!("Level up! Now level {}", self.player_level);
+        }
+    }
+
+    /// 经验值进度 (0.0 - 1.0)
+    pub fn exp_progress(&self) -> f32 {
+        let required = Self::exp_for_level(self.player_level);
+        (self.experience as f32 / required as f32).min(1.0)
+    }
+
+    /// 恢复生命值
+    pub fn heal(&mut self, amount: u32) {
+        self.lives = (self.lives + amount).min(self.max_lives);
+    }
+
+    /// 恢复护盾
+    pub fn restore_shield(&mut self, amount: u32) {
+        self.shield = (self.shield + amount).min(self.max_shield);
+    }
+
+    /// 计算敌人难度系数
+    pub fn difficulty_multiplier(&self) -> f32 {
+        1.0 + (self.player_level as f32 - 1.0) * 0.15
     }
 }
 
@@ -164,4 +230,9 @@ pub fn handle_unpause_input(
     if keyboard.just_pressed(KeyCode::Escape) || keyboard.just_pressed(KeyCode::Space) {
         next_state.set(GameState::Playing);
     }
+}
+
+/// 升级选择时暂停游戏逻辑（但不改变 GameState）
+pub fn not_upgrading(game_data: Res<GameData>) -> bool {
+    !game_data.upgrading
 }

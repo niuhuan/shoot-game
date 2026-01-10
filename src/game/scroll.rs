@@ -3,7 +3,7 @@
 
 use bevy::prelude::*;
 
-use super::states::{GameConfig, GameState};
+use super::states::{not_upgrading, GameConfig, GameState};
 
 /// 卷轴系统插件
 pub struct ScrollPlugin;
@@ -17,7 +17,9 @@ impl Plugin for ScrollPlugin {
                     update_scroll,
                     update_scrollable_entities,
                     update_background_scroll,
-                ).run_if(in_state(GameState::Playing)),
+                )
+                    .run_if(in_state(GameState::Playing))
+                    .run_if(not_upgrading),
             );
     }
 }

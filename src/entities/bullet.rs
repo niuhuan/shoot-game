@@ -2,7 +2,7 @@
 
 use bevy::prelude::*;
 
-use crate::game::{Collider, CollisionLayer, CollisionMask, GameConfig, GameState};
+use crate::game::{not_upgrading, Collider, CollisionLayer, CollisionMask, GameConfig, GameState};
 use crate::geometry::{spawn_geometry_entity, GeometryBlueprint};
 
 /// 子弹插件
@@ -16,7 +16,9 @@ impl Plugin for BulletPlugin {
                 (
                     update_bullets,
                     despawn_offscreen_bullets,
-                ).run_if(in_state(GameState::Playing)),
+                )
+                    .run_if(in_state(GameState::Playing))
+                    .run_if(not_upgrading),
             );
     }
 }
