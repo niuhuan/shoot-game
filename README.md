@@ -2,6 +2,8 @@
 
 一款基于 Bevy 引擎的几何风格射击游戏，支持编译到 WebAssembly 在浏览器中运行。
 
+快速游玩：https://niuhuan.github.io/shoot-game/
+
 ## 🎯 游戏特性
 
 - **几何风格**: 所有实体（飞机、敌人、子弹、护甲）都由多边形和弧形组成
