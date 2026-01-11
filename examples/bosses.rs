@@ -1,12 +1,13 @@
-//! Enemy style gallery.
+//! Boss style gallery (visual only).
 //!
-//! Run: `cargo run --example enemies`
+//! Run: `cargo run --example bosses`
 
 use bevy::prelude::*;
 use bevy::window::WindowResolution;
 
+use shoot::entities::{boss_blueprint_for, BossType};
 use shoot::game::{spawn_background_grid, GameConfig};
-use shoot::geometry::{spawn_geometry_entity, GeometryBlueprint, GeometryRendererPlugin};
+use shoot::geometry::{spawn_geometry_entity, GeometryRendererPlugin};
 
 fn main() {
     App::new()
@@ -14,8 +15,8 @@ fn main() {
             DefaultPlugins
                 .set(WindowPlugin {
                     primary_window: Some(Window {
-                        title: "Enemies Gallery".to_string(),
-                        resolution: WindowResolution::from((1100, 700)),
+                        title: "Bosses Gallery".to_string(),
+                        resolution: WindowResolution::from((1200, 800)),
                         resizable: true,
                         ..default()
                     }),
@@ -38,69 +39,43 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 
     let config = GameConfig {
-        window_width: 1100.0,
-        window_height: 700.0,
+        window_width: 1200.0,
+        window_height: 800.0,
         ..default()
     };
     spawn_background_grid(&mut commands, &config);
 
     let font = asset_server.load("NotoSansCJKsc-Regular.otf");
 
-    let gallery: [(&str, Vec3, GeometryBlueprint); 7] = [
-        (
-            "Diamond (legacy)",
-            Vec3::new(-420.0, 180.0, 0.0),
-            GeometryBlueprint::default_enemy(),
-        ),
-        (
-            "Drone Small (Raiden)",
-            Vec3::new(-120.0, 180.0, 0.0),
-            GeometryBlueprint::raiden_enemy_drone_small(),
-        ),
-        (
-            "Hexagon (legacy)",
-            Vec3::new(180.0, 180.0, 0.0),
-            GeometryBlueprint::hexagon_enemy(),
-        ),
-        (
-            "Tank (Raiden)",
-            Vec3::new(480.0, 180.0, 0.0),
-            GeometryBlueprint::raiden_enemy_tank(),
-        ),
-        (
-            "Elite: Scout",
-            Vec3::new(-300.0, -160.0, 0.0),
-            GeometryBlueprint::elite_scout(),
-        ),
-        (
-            "Elite: Gunship",
-            Vec3::new(50.0, -160.0, 0.0),
-            GeometryBlueprint::elite_gunship(),
-        ),
-        (
-            "Elite: Guard",
-            Vec3::new(400.0, -160.0, 0.0),
-            GeometryBlueprint::elite_guard(),
-        ),
-    ];
+    // 2 x 5 grid
+    let mut i = 0;
+    for &boss_type in BossType::all() {
+        let col = (i % 5) as f32;
+        let row = (i / 5) as f32;
 
-    for (name, pos, bp) in gallery {
+        let x = -480.0 + col * 240.0;
+        let y = 220.0 - row * 360.0;
+        let pos = Vec3::new(x, y, 0.0);
+
+        let bp = boss_blueprint_for(boss_type);
         spawn_geometry_entity(&mut commands, &bp, pos);
         spawn_label_ui(
             &mut commands,
             &config,
             &font,
-            name,
-            pos + Vec3::new(0.0, 120.0, 0.0),
+            boss_type.name(),
+            pos + Vec3::new(0.0, 130.0, 0.0),
         );
+
+        i += 1;
     }
 
     spawn_label_ui(
         &mut commands,
         &config,
         &font,
-        "敌人样式预览（不含AI/射击）",
-        Vec3::new(-config.window_width / 2.0 + 180.0, config.window_height / 2.0 - 30.0, 0.0),
+        "Boss 样式预览（仅外观，不含AI/射击）",
+        Vec3::new(-config.window_width / 2.0 + 220.0, config.window_height / 2.0 - 30.0, 0.0),
     );
 }
 
@@ -117,7 +92,7 @@ fn spawn_label_ui(
     commands
         .spawn(Node {
             position_type: PositionType::Absolute,
-            left: Val::Px(x - 140.0),
+            left: Val::Px(x - 90.0),
             top: Val::Px(y - 12.0),
             ..default()
         })
@@ -133,3 +108,4 @@ fn spawn_label_ui(
             ));
         });
 }
+

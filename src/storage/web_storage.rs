@@ -40,6 +40,12 @@ pub struct SaveData {
     /// 护盾强化等级（0-2）
     #[serde(default)]
     pub shield_upgrade_level: u8,
+    /// 生命上限强化（0-1）
+    #[serde(default)]
+    pub max_lives_upgrade_level: u8,
+    /// 护盾上限强化（0-1）
+    #[serde(default)]
+    pub max_shield_upgrade_level: u8,
 }
 
 /// 游戏设置

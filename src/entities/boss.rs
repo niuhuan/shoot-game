@@ -270,6 +270,18 @@ fn create_boss_blueprint(boss_type: BossType) -> GeometryBlueprint {
         BossType::DiamondKing => GeometryBlueprint {
             name: "boss_diamond_king".to_string(),
             shapes: vec![
+                // 外轮廓阴影（让层次更“厚”）
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(0.0, size * 1.08),
+                        Vec2D::new(-size * 1.08, 0.0),
+                        Vec2D::new(0.0, -size * 1.08),
+                        Vec2D::new(size * 1.08, 0.0),
+                    ],
+                    color: ShapeColor::new(0.10, 0.12, 0.16, 0.95),
+                    fill: true,
+                    stroke_width: 3.0,
+                },
                 GeometryShape::Polygon {
                     vertices: vec![
                         Vec2D::new(0.0, size),
@@ -293,6 +305,50 @@ fn create_boss_blueprint(boss_type: BossType) -> GeometryBlueprint {
                     fill: true,
                     stroke_width: 2.0,
                 },
+                // “核心”与外环
+                GeometryShape::Circle {
+                    center: Vec2D::ZERO,
+                    radius: size * 0.18,
+                    color: ShapeColor::new(1.0, 1.0, 0.2, 0.95),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
+                GeometryShape::Circle {
+                    center: Vec2D::ZERO,
+                    radius: size * 0.34,
+                    color: ShapeColor::new(1.0, 1.0, 0.2, 0.25),
+                    fill: false,
+                    stroke_width: 4.0,
+                },
+                // 四个“炮塔”节点（不影响碰撞，仅装饰）
+                GeometryShape::Circle {
+                    center: Vec2D::new(0.0, size * 0.72),
+                    radius: size * 0.10,
+                    color: ShapeColor::new(0.2, 0.9, 1.0, 0.55),
+                    fill: false,
+                    stroke_width: 3.0,
+                },
+                GeometryShape::Circle {
+                    center: Vec2D::new(-size * 0.72, 0.0),
+                    radius: size * 0.10,
+                    color: ShapeColor::new(0.2, 0.9, 1.0, 0.55),
+                    fill: false,
+                    stroke_width: 3.0,
+                },
+                GeometryShape::Circle {
+                    center: Vec2D::new(0.0, -size * 0.72),
+                    radius: size * 0.10,
+                    color: ShapeColor::new(0.2, 0.9, 1.0, 0.55),
+                    fill: false,
+                    stroke_width: 3.0,
+                },
+                GeometryShape::Circle {
+                    center: Vec2D::new(size * 0.72, 0.0),
+                    radius: size * 0.10,
+                    color: ShapeColor::new(0.2, 0.9, 1.0, 0.55),
+                    fill: false,
+                    stroke_width: 3.0,
+                },
             ],
             collision: CollisionShape::Circle { radius: size * 0.8 },
             scale: 1.0,
@@ -300,6 +356,13 @@ fn create_boss_blueprint(boss_type: BossType) -> GeometryBlueprint {
         BossType::HexFortress => GeometryBlueprint {
             name: "boss_hex_fortress".to_string(),
             shapes: vec![
+                // 外轮廓阴影（增强厚度）
+                GeometryShape::Polygon {
+                    vertices: regular_polygon_vertices(6, size * 1.06),
+                    color: ShapeColor::new(0.10, 0.12, 0.16, 0.95),
+                    fill: true,
+                    stroke_width: 3.0,
+                },
                 GeometryShape::Polygon {
                     vertices: regular_polygon_vertices(6, size),
                     color,
@@ -312,22 +375,152 @@ fn create_boss_blueprint(boss_type: BossType) -> GeometryBlueprint {
                     fill: true,
                     stroke_width: 2.0,
                 },
+                // 中心核心
+                GeometryShape::Circle {
+                    center: Vec2D::ZERO,
+                    radius: size * 0.20,
+                    color: ShapeColor::new(0.9, 0.98, 1.0, 0.25),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
+                GeometryShape::Circle {
+                    center: Vec2D::ZERO,
+                    radius: size * 0.12,
+                    color: ShapeColor::new(0.15, 0.95, 0.85, 0.85),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
+                // 顶点炮塔环（6个）
+                GeometryShape::Circle {
+                    center: Vec2D::new(0.0, -size * 0.86),
+                    radius: size * 0.10,
+                    color: ShapeColor::new(1.0, 0.3, 0.3, 0.45),
+                    fill: false,
+                    stroke_width: 3.0,
+                },
+                GeometryShape::Circle {
+                    center: Vec2D::new(size * 0.75, -size * 0.43),
+                    radius: size * 0.10,
+                    color: ShapeColor::new(1.0, 0.3, 0.3, 0.45),
+                    fill: false,
+                    stroke_width: 3.0,
+                },
+                GeometryShape::Circle {
+                    center: Vec2D::new(size * 0.75, size * 0.43),
+                    radius: size * 0.10,
+                    color: ShapeColor::new(1.0, 0.3, 0.3, 0.45),
+                    fill: false,
+                    stroke_width: 3.0,
+                },
+                GeometryShape::Circle {
+                    center: Vec2D::new(0.0, size * 0.86),
+                    radius: size * 0.10,
+                    color: ShapeColor::new(1.0, 0.3, 0.3, 0.45),
+                    fill: false,
+                    stroke_width: 3.0,
+                },
+                GeometryShape::Circle {
+                    center: Vec2D::new(-size * 0.75, size * 0.43),
+                    radius: size * 0.10,
+                    color: ShapeColor::new(1.0, 0.3, 0.3, 0.45),
+                    fill: false,
+                    stroke_width: 3.0,
+                },
+                GeometryShape::Circle {
+                    center: Vec2D::new(-size * 0.75, -size * 0.43),
+                    radius: size * 0.10,
+                    color: ShapeColor::new(1.0, 0.3, 0.3, 0.45),
+                    fill: false,
+                    stroke_width: 3.0,
+                },
             ],
             collision: CollisionShape::Circle { radius: size * 0.9 },
             scale: 1.0,
         },
         BossType::TriangleFighter => GeometryBlueprint {
             name: "boss_triangle_fighter".to_string(),
-            shapes: vec![GeometryShape::Polygon {
-                vertices: vec![
-                    Vec2D::new(0.0, -size),
-                    Vec2D::new(-size * 0.8, size * 0.6),
-                    Vec2D::new(size * 0.8, size * 0.6),
-                ],
-                color,
-                fill: true,
-                stroke_width: 3.0,
-            }],
+            // 从“单纯三角形”升级为更像街机战机的结构：机身 + 主翼 + 座舱 + 喷口。
+            // 仍保持朝下（机鼻在下方）。
+            shapes: vec![
+                // silhouette
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(0.0, -size * 1.10),
+                        Vec2D::new(-size * 0.92, size * 0.70),
+                        Vec2D::new(size * 0.92, size * 0.70),
+                    ],
+                    color: ShapeColor::new(0.08, 0.10, 0.14, 0.95),
+                    fill: true,
+                    stroke_width: 3.0,
+                },
+                // main hull (triangle)
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(0.0, -size),
+                        Vec2D::new(-size * 0.80, size * 0.60),
+                        Vec2D::new(size * 0.80, size * 0.60),
+                    ],
+                    color,
+                    fill: true,
+                    stroke_width: 3.0,
+                },
+                // fuselage stripe
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(-size * 0.12, -size * 0.72),
+                        Vec2D::new(size * 0.12, -size * 0.72),
+                        Vec2D::new(size * 0.22, size * 0.45),
+                        Vec2D::new(-size * 0.22, size * 0.45),
+                    ],
+                    color: ShapeColor::new(0.10, 0.12, 0.16, 0.55),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
+                // cockpit glass
+                GeometryShape::Circle {
+                    center: Vec2D::new(0.0, -size * 0.08),
+                    radius: size * 0.18,
+                    color: ShapeColor::new(0.9, 0.98, 1.0, 0.35),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
+                // winglets
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(-size * 1.05, size * 0.30),
+                        Vec2D::new(-size * 0.55, size * 0.18),
+                        Vec2D::new(-size * 0.52, size * 0.55),
+                    ],
+                    color: ShapeColor::new(color.r * 0.55, color.g * 0.55, color.b * 0.55, 0.95),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(size * 1.05, size * 0.30),
+                        Vec2D::new(size * 0.55, size * 0.18),
+                        Vec2D::new(size * 0.52, size * 0.55),
+                    ],
+                    color: ShapeColor::new(color.r * 0.55, color.g * 0.55, color.b * 0.55, 0.95),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
+                // twin exhausts (top/back)
+                GeometryShape::Circle {
+                    center: Vec2D::new(-size * 0.22, size * 0.62),
+                    radius: size * 0.12,
+                    color: ShapeColor::new(0.15, 0.95, 0.85, 0.5),
+                    fill: false,
+                    stroke_width: 3.0,
+                },
+                GeometryShape::Circle {
+                    center: Vec2D::new(size * 0.22, size * 0.62),
+                    radius: size * 0.12,
+                    color: ShapeColor::new(0.15, 0.95, 0.85, 0.5),
+                    fill: false,
+                    stroke_width: 3.0,
+                },
+            ],
             collision: CollisionShape::Circle { radius: size * 0.7 },
             scale: 1.0,
         },
@@ -340,12 +533,90 @@ fn create_boss_blueprint(boss_type: BossType) -> GeometryBlueprint {
             }
             GeometryBlueprint {
                 name: "boss_star_mothership".to_string(),
-                shapes: vec![GeometryShape::Polygon {
-                    vertices,
-                    color,
-                    fill: true,
-                    stroke_width: 3.0,
-                }],
+                shapes: vec![
+                    // 外轮廓阴影
+                    GeometryShape::Polygon {
+                        vertices: {
+                            let mut v = Vec::new();
+                            for i in 0..10 {
+                                let angle = (i as f32 / 10.0) * PI * 2.0 - PI / 2.0;
+                                let r = if i % 2 == 0 { size * 1.06 } else { size * 0.53 };
+                                v.push(Vec2D::new(angle.cos() * r, angle.sin() * r));
+                            }
+                            v
+                        },
+                        color: ShapeColor::new(0.10, 0.12, 0.16, 0.95),
+                        fill: true,
+                        stroke_width: 3.0,
+                    },
+                    // 星形外壳
+                    GeometryShape::Polygon {
+                        vertices,
+                        color,
+                        fill: true,
+                        stroke_width: 3.0,
+                    },
+                    // 内部装甲星
+                    GeometryShape::Polygon {
+                        vertices: {
+                            let mut v = Vec::new();
+                            for i in 0..10 {
+                                let angle = (i as f32 / 10.0) * PI * 2.0 - PI / 2.0;
+                                let r = if i % 2 == 0 { size * 0.62 } else { size * 0.34 };
+                                v.push(Vec2D::new(angle.cos() * r, angle.sin() * r));
+                            }
+                            v
+                        },
+                        color: ShapeColor::new(0.12, 0.16, 0.22, 0.65),
+                        fill: true,
+                        stroke_width: 2.0,
+                    },
+                    // 中心圆顶
+                    GeometryShape::Circle {
+                        center: Vec2D::new(0.0, size * 0.10),
+                        radius: size * 0.34,
+                        color: ShapeColor::new(0.9, 0.98, 1.0, 0.22),
+                        fill: true,
+                        stroke_width: 2.0,
+                    },
+                    // 核心
+                    GeometryShape::Circle {
+                        center: Vec2D::ZERO,
+                        radius: size * 0.14,
+                        color: ShapeColor::new(1.0, 0.9, 0.2, 0.95),
+                        fill: true,
+                        stroke_width: 2.0,
+                    },
+                    // 四个“引擎舱”
+                    GeometryShape::Circle {
+                        center: Vec2D::new(0.0, -size * 0.72),
+                        radius: size * 0.12,
+                        color: ShapeColor::new(0.15, 0.95, 0.85, 0.45),
+                        fill: false,
+                        stroke_width: 4.0,
+                    },
+                    GeometryShape::Circle {
+                        center: Vec2D::new(size * 0.72, 0.0),
+                        radius: size * 0.12,
+                        color: ShapeColor::new(0.15, 0.95, 0.85, 0.45),
+                        fill: false,
+                        stroke_width: 4.0,
+                    },
+                    GeometryShape::Circle {
+                        center: Vec2D::new(0.0, size * 0.72),
+                        radius: size * 0.12,
+                        color: ShapeColor::new(0.15, 0.95, 0.85, 0.45),
+                        fill: false,
+                        stroke_width: 4.0,
+                    },
+                    GeometryShape::Circle {
+                        center: Vec2D::new(-size * 0.72, 0.0),
+                        radius: size * 0.12,
+                        color: ShapeColor::new(0.15, 0.95, 0.85, 0.45),
+                        fill: false,
+                        stroke_width: 4.0,
+                    },
+                ],
                 collision: CollisionShape::Circle { radius: size * 0.8 },
                 scale: 1.0,
             }
@@ -563,6 +834,11 @@ fn create_boss_blueprint(boss_type: BossType) -> GeometryBlueprint {
             scale: 1.0,
         },
     }
+}
+
+/// 供 examples/ 等场景复用的 Boss 外观蓝图（不生成实体逻辑）。
+pub fn boss_blueprint_for(boss_type: BossType) -> GeometryBlueprint {
+    create_boss_blueprint(boss_type)
 }
 
 /// Boss行为

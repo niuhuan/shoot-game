@@ -10,6 +10,9 @@ use crate::geometry::{
     spawn_geometry_entity, CollisionShape, GeometryBlueprint, GeometryShape, ShapeColor, Vec2D,
 };
 
+/// 武器等级上限
+pub const MAX_WEAPON_LEVEL: u32 = 8;
+
 /// 武器类型枚举
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum WeaponType {
@@ -74,7 +77,7 @@ impl WeaponType {
 #[derive(Debug, Clone)]
 pub struct Weapon {
     pub weapon_type: WeaponType,
-    pub level: u32,    // 1-5
+    pub level: u32,    // 1..=MAX_WEAPON_LEVEL
     pub cooldown: f32, // 冷却时间
     pub timer: f32,    // 当前计时器
 }
@@ -91,12 +94,12 @@ impl Weapon {
 
     /// 是否满级
     pub fn is_max_level(&self) -> bool {
-        self.level >= 5
+        self.level >= MAX_WEAPON_LEVEL
     }
 
     /// 升级
     pub fn level_up(&mut self) {
-        if self.level < 5 {
+        if self.level < MAX_WEAPON_LEVEL {
             self.level += 1;
             // 升级减少冷却时间
             self.cooldown =

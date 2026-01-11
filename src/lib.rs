@@ -14,7 +14,7 @@ use entities::{BossPlugin, BulletPlugin, EnemyPlugin, PlayerPlugin, ShieldPlugin
 use game::{CollisionPlugin, GameConfig, GameStatePlugin, ScrollPlugin};
 use geometry::GeometryRendererPlugin;
 use storage::{RechargePlugin, StoragePlugin};
-use ui::{HudPlugin, InputPlugin, MenuPlugin, UpgradePlugin};
+use ui::{EnhancePlugin, HudPlugin, InputPlugin, MenuPlugin, UpgradePlugin};
 
 /// 游戏主插件
 pub struct ShootGamePlugin;
@@ -39,6 +39,7 @@ impl Plugin for ShootGamePlugin {
             .add_plugins(RechargePlugin)
             // UI
             .add_plugins(MenuPlugin)
+            .add_plugins(EnhancePlugin)
             .add_plugins(HudPlugin)
             .add_plugins(InputPlugin)
             .add_plugins(UpgradePlugin)

@@ -3,7 +3,7 @@
 use bevy::prelude::*;
 use rand::seq::SliceRandom;
 
-use crate::entities::{Player, WeaponInventory, WeaponType};
+use crate::entities::{Player, WeaponInventory, WeaponType, MAX_WEAPON_LEVEL};
 use crate::game::{GameData, GameState};
 
 /// 升级界面插件
@@ -105,7 +105,7 @@ fn get_upgrade_options(game_data: &GameData, inventory: &WeaponInventory) -> Vec
 
     // 已有但未满级的武器
     for weapon in &inventory.weapons {
-        if weapon.level < 5 {
+        if weapon.level < MAX_WEAPON_LEVEL {
             options.push(UpgradeChoice::Weapon {
                 weapon_type: weapon.weapon_type,
                 is_new: false,

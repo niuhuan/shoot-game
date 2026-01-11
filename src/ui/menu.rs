@@ -23,7 +23,6 @@ impl Plugin for MenuPlugin {
                 Update,
                 (
                     menu_button_system,
-                    menu_upgrade_button_system,
                     menu_keyboard_start,
                     update_menu_stats,
                 )
@@ -57,26 +56,10 @@ struct PauseRoot;
 #[derive(Component, Clone, Copy, PartialEq, Eq)]
 enum MenuButton {
     Start,
+    Enhance,
     Recharge,
     Quit,
 }
-
-#[derive(Component, Clone, Copy, PartialEq, Eq)]
-enum UpgradeButtonKind {
-    Hull,
-    Shield,
-}
-
-#[derive(Component)]
-struct UpgradeButton {
-    kind: UpgradeButtonKind,
-}
-
-#[derive(Component)]
-struct HullUpgradeText;
-
-#[derive(Component)]
-struct ShieldUpgradeText;
 
 #[derive(Component, Clone, Copy)]
 enum GameOverButton {
@@ -187,6 +170,46 @@ fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>, save_data:
                     },
                 ));
 
+                // 强化按钮（文本样式，小字体，带下划线）
+                parent.spawn((
+                    Button,
+                    Node {
+                        padding: UiRect::all(Val::Px(5.0)),
+                        ..default()
+                    },
+                    BackgroundColor(Color::NONE),
+                    MenuButton::Enhance,
+                ))
+                .with_children(|parent| {
+                    parent
+                        .spawn(Node {
+                            flex_direction: FlexDirection::Column,
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        })
+                        .with_children(|parent| {
+                            parent.spawn((
+                                Text::new("强化"),
+                                TextFont {
+                                    font: font.clone(),
+                                    font_size: 14.0,
+                                    ..default()
+                                },
+                                TextColor(Color::srgb(0.0, 0.8, 1.0)),
+                            ));
+                            parent.spawn((
+                                Node {
+                                    width: Val::Percent(100.0),
+                                    height: Val::Px(2.0),
+                                    margin: UiRect::top(Val::Px(1.0)),
+                                    ..default()
+                                },
+                                BackgroundColor(Color::srgb(0.0, 0.8, 1.0)),
+                            ));
+                        });
+                });
+
                 // 打赏按钮（文本样式，小字体，带下划线）
                 parent.spawn((
                     Button,
@@ -229,133 +252,6 @@ fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>, save_data:
                 });
             });
 
-            // 强化系统（金币下方）
-            parent
-                .spawn(Node {
-                    flex_direction: FlexDirection::Column,
-                    align_items: AlignItems::Center,
-                    row_gap: Val::Px(8.0),
-                    margin: UiRect::bottom(Val::Px(35.0)),
-                    ..default()
-                })
-                .with_children(|parent| {
-                    parent.spawn((
-                        Text::new("强化"),
-                        TextFont {
-                            font: font.clone(),
-                            font_size: 18.0,
-                            ..default()
-                        },
-                        TextColor(Color::srgb(0.8, 0.9, 1.0)),
-                    ));
-
-                    // 机身强化
-                    parent
-                        .spawn(Node {
-                            flex_direction: FlexDirection::Row,
-                            align_items: AlignItems::Center,
-                            justify_content: JustifyContent::Center,
-                            column_gap: Val::Px(10.0),
-                            ..default()
-                        })
-                        .with_children(|parent| {
-                            parent.spawn((
-                                Text::new(upgrade_status_text(
-                                    UpgradeButtonKind::Hull,
-                                    save_data.hull_upgrade_level,
-                                )),
-                                TextFont {
-                                    font: font.clone(),
-                                    font_size: 14.0,
-                                    ..default()
-                                },
-                                TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                                HullUpgradeText,
-                            ));
-                            parent
-                                .spawn((
-                                    Button,
-                                    Node {
-                                        width: Val::Px(64.0),
-                                        height: Val::Px(26.0),
-                                        justify_content: JustifyContent::Center,
-                                        align_items: AlignItems::Center,
-                                        ..default()
-                                    },
-                                    BackgroundColor(Color::srgb(0.12, 0.12, 0.18)),
-                                    BorderColor::all(Color::srgb(0.0, 0.8, 1.0)),
-                                    BorderRadius::all(Val::Px(4.0)),
-                                    UpgradeButton {
-                                        kind: UpgradeButtonKind::Hull,
-                                    },
-                                ))
-                                .with_children(|parent| {
-                                    parent.spawn((
-                                        Text::new("升级"),
-                                        TextFont {
-                                            font: font.clone(),
-                                            font_size: 14.0,
-                                            ..default()
-                                        },
-                                        TextColor(Color::WHITE),
-                                    ));
-                                });
-                        });
-
-                    // 护盾强化
-                    parent
-                        .spawn(Node {
-                            flex_direction: FlexDirection::Row,
-                            align_items: AlignItems::Center,
-                            justify_content: JustifyContent::Center,
-                            column_gap: Val::Px(10.0),
-                            ..default()
-                        })
-                        .with_children(|parent| {
-                            parent.spawn((
-                                Text::new(upgrade_status_text(
-                                    UpgradeButtonKind::Shield,
-                                    save_data.shield_upgrade_level,
-                                )),
-                                TextFont {
-                                    font: font.clone(),
-                                    font_size: 14.0,
-                                    ..default()
-                                },
-                                TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                                ShieldUpgradeText,
-                            ));
-                            parent
-                                .spawn((
-                                    Button,
-                                    Node {
-                                        width: Val::Px(64.0),
-                                        height: Val::Px(26.0),
-                                        justify_content: JustifyContent::Center,
-                                        align_items: AlignItems::Center,
-                                        ..default()
-                                    },
-                                    BackgroundColor(Color::srgb(0.12, 0.12, 0.18)),
-                                    BorderColor::all(Color::srgb(0.0, 0.8, 1.0)),
-                                    BorderRadius::all(Val::Px(4.0)),
-                                    UpgradeButton {
-                                        kind: UpgradeButtonKind::Shield,
-                                    },
-                                ))
-                                .with_children(|parent| {
-                                    parent.spawn((
-                                        Text::new("升级"),
-                                        TextFont {
-                                            font: font.clone(),
-                                            font_size: 14.0,
-                                            ..default()
-                                        },
-                                        TextColor(Color::WHITE),
-                                    ));
-                                });
-                        });
-                });
-
             // 开始按钮
             spawn_button(parent, &font, "开始游戏", MenuButton::Start);
         });
@@ -397,25 +293,6 @@ fn spawn_button<T: Component + Clone>(
         });
 }
 
-fn upgrade_cost(current_level: u8) -> Option<u32> {
-    match current_level {
-        0 => Some(30),
-        1 => Some(100),
-        _ => None,
-    }
-}
-
-fn upgrade_status_text(kind: UpgradeButtonKind, current_level: u8) -> String {
-    let label = match kind {
-        UpgradeButtonKind::Hull => "机身",
-        UpgradeButtonKind::Shield => "护盾",
-    };
-    match upgrade_cost(current_level) {
-        Some(c) => format!("{label}：Lv{}/2（{}金币）", current_level, c),
-        None => format!("{label}：Lv2/2（已满）"),
-    }
-}
-
 /// 清理菜单
 fn cleanup_menu(mut commands: Commands, query: Query<Entity, With<MenuRoot>>) {
     for entity in query.iter() {
@@ -441,12 +318,21 @@ fn menu_button_system(
                         *bg_color = BackgroundColor(Color::srgb(0.0, 0.6, 0.8));
                         log::info!("Menu: start pressed");
                         game_data.reset();
-                        // 应用强化：机身每级 +1 最大生命；护盾每级 +2 最大护盾
-                        game_data.max_lives = 5 + save_data.hull_upgrade_level as u32;
-                        game_data.max_shield = 4 + save_data.shield_upgrade_level as u32 * 2;
-                        game_data.lives = game_data.lives.min(game_data.max_lives);
-                        game_data.shield = game_data.shield.min(game_data.max_shield);
+                        // 应用强化：
+                        // - 初始生命：机身每级 +1（基准 3）
+                        // - 初始护盾：护盾每级 +2（基准 0）
+                        // - 生命上限：可升级 1 次（+1，50金币）
+                        // - 护盾上限：可升级 1 次（+2，50金币）
+                        game_data.max_lives = 5 + save_data.max_lives_upgrade_level.min(1) as u32;
+                        game_data.max_shield = 4 + save_data.max_shield_upgrade_level.min(1) as u32 * 2;
+                        game_data.lives = (3 + save_data.hull_upgrade_level.min(2) as u32).min(game_data.max_lives);
+                        game_data.shield =
+                            (0 + save_data.shield_upgrade_level.min(2) as u32 * 2).min(game_data.max_shield);
                         next_state.set(GameState::Playing);
+                    }
+                    MenuButton::Enhance => {
+                        log::info!("Menu: enhance pressed");
+                        next_state.set(GameState::Enhance);
                     }
                     MenuButton::Recharge => {
                         log::info!("Menu: recharge pressed");
@@ -462,13 +348,13 @@ fn menu_button_system(
             }
             Interaction::Hovered => {
                 *bg_color = match button {
-                    MenuButton::Recharge => BackgroundColor(Color::NONE),
+                    MenuButton::Recharge | MenuButton::Enhance => BackgroundColor(Color::NONE),
                     _ => BackgroundColor(Color::srgb(0.2, 0.2, 0.35)),
                 };
             }
             Interaction::None => {
                 *bg_color = match button {
-                    MenuButton::Recharge => BackgroundColor(Color::NONE),
+                    MenuButton::Recharge | MenuButton::Enhance => BackgroundColor(Color::NONE),
                     _ => BackgroundColor(Color::srgb(0.15, 0.15, 0.25)),
                 };
             }
@@ -485,38 +371,6 @@ fn menu_keyboard_start(
         log::info!("Menu: keyboard start");
         game_data.reset();
         next_state.set(GameState::Playing);
-    }
-}
-
-fn menu_upgrade_button_system(
-    mut interaction_query: Query<(&Interaction, &UpgradeButton), Changed<Interaction>>,
-    mut save_data: ResMut<SaveData>,
-) {
-    for (interaction, button) in interaction_query.iter_mut() {
-        if *interaction != Interaction::Pressed {
-            continue;
-        }
-
-        let current_level = match button.kind {
-            UpgradeButtonKind::Hull => save_data.hull_upgrade_level,
-            UpgradeButtonKind::Shield => save_data.shield_upgrade_level,
-        };
-        let Some(cost) = upgrade_cost(current_level) else {
-            continue;
-        };
-        if save_data.total_coins < cost {
-            continue;
-        }
-
-        save_data.total_coins -= cost;
-        match button.kind {
-            UpgradeButtonKind::Hull => save_data.hull_upgrade_level = (current_level + 1).min(2),
-            UpgradeButtonKind::Shield => save_data.shield_upgrade_level = (current_level + 1).min(2),
-        }
-
-        if let Err(e) = crate::storage::save_game(&save_data) {
-            log::error!("Failed to save upgrades: {}", e);
-        }
     }
 }
 
@@ -704,21 +558,12 @@ fn pause_button_system(
 
 fn update_menu_stats(
     save_data: Res<SaveData>,
-    mut coins_query: Query<&mut Text, With<MenuCoinsText>>,
-    mut high_score_query: Query<&mut Text, (With<MenuHighScoreText>, Without<MenuCoinsText>)>,
-    mut hull_query: Query<&mut Text, (With<HullUpgradeText>, Without<MenuCoinsText>)>,
-    mut shield_query: Query<&mut Text, (With<ShieldUpgradeText>, Without<MenuCoinsText>)>,
+    mut text_set: ParamSet<(Query<&mut Text, With<MenuCoinsText>>, Query<&mut Text, With<MenuHighScoreText>>)>,
 ) {
-    if let Ok(mut text) = coins_query.single_mut() {
+    if let Ok(mut text) = text_set.p0().single_mut() {
         **text = format!("金币: {}", save_data.total_coins);
     }
-    if let Ok(mut text) = high_score_query.single_mut() {
+    if let Ok(mut text) = text_set.p1().single_mut() {
         **text = format!("最高分: {}", save_data.high_score);
-    }
-    if let Ok(mut text) = hull_query.single_mut() {
-        **text = upgrade_status_text(UpgradeButtonKind::Hull, save_data.hull_upgrade_level);
-    }
-    if let Ok(mut text) = shield_query.single_mut() {
-        **text = upgrade_status_text(UpgradeButtonKind::Shield, save_data.shield_upgrade_level);
     }
 }

@@ -70,7 +70,7 @@ function Ensure-Font {
             if (-not $hasFontTools) {
                 try { python -m pip install --user -q fonttools | Out-Null } catch {}
             }
-            python tools/subset_font.py --input $FontFullPath --output $FontPath --roots "src" --roots "web" | Out-Null
+            python tools/subset_font.py --input $FontFullPath --output $FontPath --roots "src" --roots "web" --roots "examples" --roots "README.md" | Out-Null
         } catch {
             Copy-Item -Force $FontFullPath $FontPath
         }

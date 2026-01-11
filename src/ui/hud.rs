@@ -3,7 +3,7 @@
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
-use crate::entities::{BossState, Player, WeaponInventory, WeaponType};
+use crate::entities::{BossState, Player, WeaponInventory, WeaponType, MAX_WEAPON_LEVEL};
 use crate::game::{GameData, GameState};
 
 /// 满血/满盾等情况的浮动分数提示
@@ -592,7 +592,7 @@ fn update_hud(
                             WeaponType::Aura => "球",
                             WeaponType::Beam => "波",
                         };
-                        format!("{}Lv{}", name, w.level)
+                        format!("{}Lv{}/{}", name, w.level, MAX_WEAPON_LEVEL)
                     })
                     .collect();
                 **text = format!("武器: {}", weapons_str.join(" "));

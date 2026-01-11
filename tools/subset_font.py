@@ -47,6 +47,12 @@ def extract_chars_from_roots(roots: list[Path]) -> set[str]:
             except Exception:
                 continue
 
+            # 保底：把“代码里出现过的所有非 ASCII 字符”都纳入（包含注释/文档等）。
+            # 这样即便 UI 文本是拼接出来的，或写在非字符串位置，也不容易漏字。
+            for ch in content:
+                if ch != "\0" and ord(ch) >= 0x80:
+                    chars.add(ch)
+
             if path.suffix == ".rs":
                 for s in RUST_STRING_RE.findall(content):
                     chars |= extract_chars_from_text(s)

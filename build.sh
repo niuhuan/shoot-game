@@ -28,15 +28,12 @@ check_command() {
 # 确保字体存在（若缺失则下载）
 ensure_font() {
     mkdir -p assets
-    # 如果已经存在字体，但体积仍很大（通常表示是“完整字体”），尝试重建子集字体
+    # 无论如何都重新生成子集字体（避免新增文字漏字）。
+    # 若已有字体且体积很大（通常表示是“完整字体”），且 full 缺失，则把它保存为 full。
     if [ -s "$FONT_PATH" ]; then
         local size
         size=$(wc -c <"$FONT_PATH" | tr -d ' ')
-        if [ "$size" -le 6000000 ]; then
-            return 0
-        fi
-        # 若没有 full 字体，则先把现有字体当作 full 保存下来
-        if [ ! -s "$FONT_FULL_PATH" ]; then
+        if [ "$size" -gt 6000000 ] && [ ! -s "$FONT_FULL_PATH" ]; then
             cp "$FONT_PATH" "$FONT_FULL_PATH"
         fi
     fi
@@ -74,14 +71,21 @@ PY
 
     # 尝试生成子集字体（没有 fontTools 就退化为直接复制）
     if command -v python3 &> /dev/null; then
-        echo -e "${BLUE}🔤 生成子集字体（仅包含 UI 用到的字符）...${NC}"
+        echo -e "${BLUE}🔤 重新生成子集字体（仅包含项目用到的字符）...${NC}"
         # 若缺少 fontTools，尝试用 pip 安装（失败则回退）
         if ! python3 -c "import fontTools.subset" >/dev/null 2>&1; then
             if python3 -m pip --version >/dev/null 2>&1; then
                 python3 -m pip install --user -q fonttools || true
             fi
         fi
-        python3 tools/subset_font.py --input "$FONT_FULL_PATH" --output "$FONT_PATH" --roots "src" --roots "web" || cp "$FONT_FULL_PATH" "$FONT_PATH"
+        python3 tools/subset_font.py \
+            --input "$FONT_FULL_PATH" \
+            --output "$FONT_PATH" \
+            --roots "src" \
+            --roots "web" \
+            --roots "examples" \
+            --roots "README.md" \
+            || cp "$FONT_FULL_PATH" "$FONT_PATH"
     else
         cp "$FONT_FULL_PATH" "$FONT_PATH"
     fi

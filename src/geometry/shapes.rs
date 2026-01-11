@@ -605,6 +605,19 @@ impl GeometryBlueprint {
         Self {
             name: "enemy_drone_small".to_string(),
             shapes: vec![
+                // silhouette
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(0.0, 16.0),
+                        Vec2D::new(-14.0, 5.0),
+                        Vec2D::new(-9.0, -16.0),
+                        Vec2D::new(9.0, -16.0),
+                        Vec2D::new(14.0, 5.0),
+                    ],
+                    color: ShapeColor::new(0.10, 0.12, 0.16, 0.95),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
                 GeometryShape::Polygon {
                     vertices: vec![
                         Vec2D::new(0.0, 14.0),
@@ -616,6 +629,18 @@ impl GeometryBlueprint {
                     color: ShapeColor::new(1.0, 0.25, 0.35, 1.0),
                     fill: true,
                     stroke_width: 2.0,
+                },
+                // fuselage stripe
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(-3.0, 10.0),
+                        Vec2D::new(3.0, 10.0),
+                        Vec2D::new(4.0, -12.0),
+                        Vec2D::new(-4.0, -12.0),
+                    ],
+                    color: ShapeColor::new(0.10, 0.12, 0.16, 0.45),
+                    fill: true,
+                    stroke_width: 1.0,
                 },
                 GeometryShape::Polygon {
                     vertices: vec![
@@ -644,6 +669,22 @@ impl GeometryBlueprint {
                     fill: true,
                     stroke_width: 1.0,
                 },
+                // cockpit glass
+                GeometryShape::Circle {
+                    center: Vec2D::new(0.0, 6.0),
+                    radius: 3.8,
+                    color: ShapeColor::new(0.9, 0.98, 1.0, 0.25),
+                    fill: true,
+                    stroke_width: 1.0,
+                },
+                // exhaust ring
+                GeometryShape::Circle {
+                    center: Vec2D::new(0.0, -16.0),
+                    radius: 4.2,
+                    color: ShapeColor::new(0.15, 0.95, 0.85, 0.55),
+                    fill: false,
+                    stroke_width: 2.5,
+                },
             ],
             collision: CollisionShape::Circle { radius: 14.0 },
             scale: 1.0,
@@ -661,6 +702,20 @@ impl GeometryBlueprint {
         Self {
             name: "enemy_tank".to_string(),
             shapes: vec![
+                // silhouette
+                GeometryShape::Polygon {
+                    vertices: {
+                        let mut v = Vec::with_capacity(6);
+                        for i in 0..6 {
+                            let angle = (i as f32) * PI / 3.0 - PI / 2.0;
+                            v.push(Vec2D::new((radius + 3.0) * angle.cos(), (radius + 3.0) * angle.sin() * 1.15));
+                        }
+                        v
+                    },
+                    color: ShapeColor::new(0.10, 0.12, 0.16, 0.95),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
                 GeometryShape::Polygon {
                     vertices: hull,
                     color: ShapeColor::new(1.0, 0.6, 0.1, 1.0),
@@ -678,12 +733,39 @@ impl GeometryBlueprint {
                     fill: true,
                     stroke_width: 2.0,
                 },
+                // armor stripe
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(-6.0, 18.0),
+                        Vec2D::new(6.0, 18.0),
+                        Vec2D::new(10.0, -16.0),
+                        Vec2D::new(-10.0, -16.0),
+                    ],
+                    color: ShapeColor::new(0.10, 0.12, 0.16, 0.40),
+                    fill: true,
+                    stroke_width: 1.0,
+                },
                 GeometryShape::Circle {
                     center: Vec2D::new(0.0, 0.0),
                     radius: 6.0,
                     color: ShapeColor::RED,
                     fill: true,
                     stroke_width: 1.0,
+                },
+                // engine glows (bottom)
+                GeometryShape::Circle {
+                    center: Vec2D::new(-9.0, -20.0),
+                    radius: 4.2,
+                    color: ShapeColor::new(0.2, 0.9, 1.0, 0.6),
+                    fill: false,
+                    stroke_width: 2.5,
+                },
+                GeometryShape::Circle {
+                    center: Vec2D::new(9.0, -20.0),
+                    radius: 4.2,
+                    color: ShapeColor::new(0.2, 0.9, 1.0, 0.6),
+                    fill: false,
+                    stroke_width: 2.5,
                 },
             ],
             collision: CollisionShape::Circle { radius: 22.0 },
@@ -696,49 +778,152 @@ impl GeometryBlueprint {
         Self {
             name: "raiden_missile".to_string(),
             shapes: vec![
-                // body
+                // silhouette (shadow)
                 GeometryShape::Polygon {
                     vertices: vec![
-                        Vec2D::new(0.0, 22.0),
-                        Vec2D::new(-5.0, 14.0),
-                        Vec2D::new(-5.0, -18.0),
-                        Vec2D::new(5.0, -18.0),
-                        Vec2D::new(5.0, 14.0),
+                        Vec2D::new(0.0, 28.0),
+                        Vec2D::new(-7.0, 18.0),
+                        Vec2D::new(-7.5, -20.0),
+                        Vec2D::new(-3.0, -30.0),
+                        Vec2D::new(3.0, -30.0),
+                        Vec2D::new(7.5, -20.0),
+                        Vec2D::new(7.0, 18.0),
+                    ],
+                    color: ShapeColor::new(0.10, 0.12, 0.16, 0.95),
+                    fill: true,
+                    stroke_width: 1.0,
+                },
+                // main body
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(0.0, 26.0),
+                        Vec2D::new(-6.0, 17.0),
+                        Vec2D::new(-6.0, -18.0),
+                        Vec2D::new(-2.5, -27.0),
+                        Vec2D::new(2.5, -27.0),
+                        Vec2D::new(6.0, -18.0),
+                        Vec2D::new(6.0, 17.0),
                     ],
                     color: ShapeColor::new(0.92, 0.20, 0.28, 1.0),
                     fill: true,
                     stroke_width: 1.0,
                 },
-                // tip highlight
+                // nose cone highlight
                 GeometryShape::Polygon {
-                    vertices: vec![Vec2D::new(0.0, 28.0), Vec2D::new(-3.5, 18.0), Vec2D::new(3.5, 18.0)],
+                    vertices: vec![
+                        Vec2D::new(0.0, 33.0),
+                        Vec2D::new(-4.2, 20.0),
+                        Vec2D::new(4.2, 20.0),
+                    ],
                     color: ShapeColor::new(0.86, 0.88, 0.92, 1.0),
                     fill: true,
                     stroke_width: 1.0,
                 },
-                // fins
+                // body stripe
                 GeometryShape::Polygon {
-                    vertices: vec![Vec2D::new(-9.0, -4.0), Vec2D::new(-5.0, -6.0), Vec2D::new(-9.0, -14.0)],
-                    color: ShapeColor::new(0.55, 0.08, 0.14, 1.0),
+                    vertices: vec![
+                        Vec2D::new(-2.0, 18.0),
+                        Vec2D::new(2.0, 18.0),
+                        Vec2D::new(3.0, -22.0),
+                        Vec2D::new(-3.0, -22.0),
+                    ],
+                    color: ShapeColor::new(0.10, 0.12, 0.16, 0.45),
                     fill: true,
                     stroke_width: 1.0,
                 },
-                GeometryShape::Polygon {
-                    vertices: vec![Vec2D::new(9.0, -4.0), Vec2D::new(5.0, -6.0), Vec2D::new(9.0, -14.0)],
-                    color: ShapeColor::new(0.55, 0.08, 0.14, 1.0),
-                    fill: true,
-                    stroke_width: 1.0,
-                },
-                // exhaust glow
+                // guidance "eye"
                 GeometryShape::Circle {
-                    center: Vec2D::new(0.0, -22.0),
-                    radius: 5.0,
-                    color: ShapeColor::new(0.2, 0.9, 1.0, 0.85),
+                    center: Vec2D::new(0.0, 14.5),
+                    radius: 2.2,
+                    color: ShapeColor::new(1.0, 0.9, 0.2, 0.95),
+                    fill: true,
+                    stroke_width: 1.0,
+                },
+                GeometryShape::Circle {
+                    center: Vec2D::new(0.0, 14.5),
+                    radius: 4.6,
+                    color: ShapeColor::new(1.0, 0.9, 0.2, 0.35),
+                    fill: false,
+                    stroke_width: 2.0,
+                },
+                // fins (bigger, layered)
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(-14.0, -2.0),
+                        Vec2D::new(-6.0, -6.0),
+                        Vec2D::new(-7.5, -12.0),
+                        Vec2D::new(-16.0, -18.0),
+                    ],
+                    color: ShapeColor::new(0.55, 0.08, 0.14, 1.0),
+                    fill: true,
+                    stroke_width: 1.0,
+                },
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(14.0, -2.0),
+                        Vec2D::new(6.0, -6.0),
+                        Vec2D::new(7.5, -12.0),
+                        Vec2D::new(16.0, -18.0),
+                    ],
+                    color: ShapeColor::new(0.55, 0.08, 0.14, 1.0),
+                    fill: true,
+                    stroke_width: 1.0,
+                },
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(-11.5, -6.0),
+                        Vec2D::new(-6.5, -8.0),
+                        Vec2D::new(-8.5, -13.0),
+                        Vec2D::new(-13.5, -14.0),
+                    ],
+                    color: ShapeColor::new(0.86, 0.88, 0.92, 0.55),
+                    fill: true,
+                    stroke_width: 1.0,
+                },
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(11.5, -6.0),
+                        Vec2D::new(6.5, -8.0),
+                        Vec2D::new(8.5, -13.0),
+                        Vec2D::new(13.5, -14.0),
+                    ],
+                    color: ShapeColor::new(0.86, 0.88, 0.92, 0.55),
+                    fill: true,
+                    stroke_width: 1.0,
+                },
+                // exhaust flame (filled)
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(0.0, -38.0),
+                        Vec2D::new(-4.0, -28.0),
+                        Vec2D::new(0.0, -22.0),
+                        Vec2D::new(4.0, -28.0),
+                    ],
+                    color: ShapeColor::new(1.0, 0.65, 0.10, 0.85),
+                    fill: true,
+                    stroke_width: 1.0,
+                },
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(0.0, -34.0),
+                        Vec2D::new(-2.4, -28.0),
+                        Vec2D::new(0.0, -25.0),
+                        Vec2D::new(2.4, -28.0),
+                    ],
+                    color: ShapeColor::new(0.95, 0.95, 1.0, 0.55),
+                    fill: true,
+                    stroke_width: 1.0,
+                },
+                // exhaust glow ring (subtle)
+                GeometryShape::Circle {
+                    center: Vec2D::new(0.0, -28.0),
+                    radius: 6.2,
+                    color: ShapeColor::new(0.2, 0.9, 1.0, 0.55),
                     fill: false,
                     stroke_width: 3.0,
                 },
             ],
-            collision: CollisionShape::Circle { radius: 12.0 },
+            collision: CollisionShape::Circle { radius: 14.0 },
             scale: 1.0,
         }
     }

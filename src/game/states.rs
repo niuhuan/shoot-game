@@ -19,6 +19,8 @@ pub enum GameState {
     GameOver,
     /// 打赏界面
     Recharge,
+    /// 强化界面（主菜单进入）
+    Enhance,
 }
 
 /// 游戏数据资源
