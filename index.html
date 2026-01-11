@@ -303,7 +303,7 @@
 	            }
 	        }
 
-        // 充值界面 JS 桥接
+        // 打赏界面 JS 桥接
         window.setupRechargeListeners = function() {
             const submitBtn = document.getElementById('recharge-submit');
             const cancelBtn = document.getElementById('recharge-cancel');
@@ -372,7 +372,7 @@
             }
         };
 
-        // 观察 DOM 变化，自动设置充值监听器
+        // 观察 DOM 变化，自动设置打赏监听器
         const observer = new MutationObserver(function(mutations) {
             mutations.forEach(function(mutation) {
                 mutation.addedNodes.forEach(function(node) {
