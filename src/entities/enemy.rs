@@ -625,10 +625,15 @@ fn apply_direct_damage(
             game_data.add_score_only(score);
         } else {
             game_data.add_score(score);
-            // 2% 概率掉落金币
             let mut rng = rand::rng();
-            if rng.random_bool(0.02) {
-                use crate::entities::shield::{spawn_power_up, PowerUpType};
+            // 掉落：心(0.5%) / 盾(1%) / 金币(2%)，最多掉 1 个
+            let roll = rng.random_range(0.0..1.0);
+            use crate::entities::shield::{spawn_power_up, PowerUpType};
+            if roll < 0.005 {
+                spawn_power_up(commands, position, PowerUpType::ExtraLife);
+            } else if roll < 0.015 {
+                spawn_power_up(commands, position, PowerUpType::Shield);
+            } else if roll < 0.035 {
                 spawn_power_up(commands, position, PowerUpType::Coin);
             }
         }

@@ -996,6 +996,118 @@ impl GeometryBlueprint {
             scale: 1.0,
         }
     }
+
+    /// 金币道具（小币）
+    pub fn power_up_coin() -> Self {
+        Self {
+            name: "power_up_coin".to_string(),
+            shapes: vec![
+                GeometryShape::Circle {
+                    center: Vec2D::ZERO,
+                    radius: 10.0,
+                    color: ShapeColor::new(1.0, 0.85, 0.15, 0.95),
+                    fill: true,
+                    stroke_width: 1.0,
+                },
+                GeometryShape::Circle {
+                    center: Vec2D::ZERO,
+                    radius: 10.0,
+                    color: ShapeColor::new(0.25, 0.15, 0.05, 0.35),
+                    fill: false,
+                    stroke_width: 2.0,
+                },
+                GeometryShape::Circle {
+                    center: Vec2D::new(-3.0, 3.0),
+                    radius: 3.0,
+                    color: ShapeColor::new(1.0, 1.0, 1.0, 0.22),
+                    fill: true,
+                    stroke_width: 1.0,
+                },
+            ],
+            collision: CollisionShape::Circle { radius: 10.0 },
+            scale: 1.0,
+        }
+    }
+
+    /// 护盾道具（小盾牌）
+    pub fn power_up_shield() -> Self {
+        Self {
+            name: "power_up_shield".to_string(),
+            shapes: vec![
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(0.0, 14.0),
+                        Vec2D::new(-12.0, 8.0),
+                        Vec2D::new(-10.0, -8.0),
+                        Vec2D::new(0.0, -14.0),
+                        Vec2D::new(10.0, -8.0),
+                        Vec2D::new(12.0, 8.0),
+                    ],
+                    color: ShapeColor::new(0.2, 0.85, 1.0, 0.9),
+                    fill: true,
+                    stroke_width: 2.0,
+                },
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(0.0, 10.0),
+                        Vec2D::new(-8.0, 6.0),
+                        Vec2D::new(-7.0, -6.0),
+                        Vec2D::new(0.0, -10.0),
+                        Vec2D::new(7.0, -6.0),
+                        Vec2D::new(8.0, 6.0),
+                    ],
+                    color: ShapeColor::new(0.9, 0.98, 1.0, 0.28),
+                    fill: true,
+                    stroke_width: 1.0,
+                },
+            ],
+            collision: CollisionShape::Circle { radius: 14.0 },
+            scale: 1.0,
+        }
+    }
+
+    /// 生命道具（心形）
+    pub fn power_up_heart() -> Self {
+        // 简化心形：上方两个圆 + 下方尖角多边形
+        Self {
+            name: "power_up_heart".to_string(),
+            shapes: vec![
+                GeometryShape::Circle {
+                    center: Vec2D::new(-5.0, 4.0),
+                    radius: 6.5,
+                    color: ShapeColor::new(1.0, 0.25, 0.35, 0.92),
+                    fill: true,
+                    stroke_width: 1.0,
+                },
+                GeometryShape::Circle {
+                    center: Vec2D::new(5.0, 4.0),
+                    radius: 6.5,
+                    color: ShapeColor::new(1.0, 0.25, 0.35, 0.92),
+                    fill: true,
+                    stroke_width: 1.0,
+                },
+                GeometryShape::Polygon {
+                    vertices: vec![
+                        Vec2D::new(-11.0, 3.0),
+                        Vec2D::new(11.0, 3.0),
+                        Vec2D::new(0.0, -14.0),
+                    ],
+                    color: ShapeColor::new(1.0, 0.25, 0.35, 0.92),
+                    fill: true,
+                    stroke_width: 1.0,
+                },
+                GeometryShape::Circle {
+                    center: Vec2D::new(-4.0, 6.0),
+                    radius: 2.0,
+                    color: ShapeColor::new(1.0, 1.0, 1.0, 0.18),
+                    fill: true,
+                    stroke_width: 1.0,
+                },
+            ],
+            collision: CollisionShape::Circle { radius: 12.0 },
+            scale: 1.0,
+        }
+    }
 }
 
 /// Bevy 组件：存储实体的几何蓝图

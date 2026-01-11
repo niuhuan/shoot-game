@@ -1,9 +1,12 @@
 //! 护盾系统
 
 use bevy::prelude::*;
+use bevy_prototype_lyon::prelude::*;
 
 use crate::game::{Collider, CollisionLayer, CollisionMask, GameState};
-use crate::geometry::{spawn_geometry_entity, CollisionShape, GeometryBlueprint};
+use crate::geometry::{spawn_geometry_entity, CollisionShape, ColorPulse, GeometryBlueprint, ShapeColor};
+use crate::game::GameData;
+use crate::entities::Player;
 
 /// 护盾插件
 pub struct ShieldPlugin;
@@ -12,7 +15,8 @@ impl Plugin for ShieldPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Update,
-            (update_shield, shield_rotation).run_if(in_state(GameState::Playing)),
+            (update_shield, shield_rotation, update_player_shield_vfx)
+                .run_if(in_state(GameState::Playing)),
         );
     }
 }
@@ -37,8 +41,6 @@ impl Default for Shield {
 
 /// 为玩家生成护盾
 pub fn spawn_player_shield(commands: &mut Commands, player_entity: Entity) {
-    let blueprint = GeometryBlueprint::default_shield();
-
     commands.entity(player_entity).with_children(|parent| {
         parent.spawn((
             Transform::default(),
@@ -73,6 +75,61 @@ fn shield_rotation(time: Res<Time>, mut query: Query<(&mut Transform, &Shield)>)
     }
 }
 
+/// 玩家护盾视觉特效（极低透明度慢闪烁，不盖住机身）
+#[derive(Component)]
+struct PlayerShieldVfx;
+
+fn update_player_shield_vfx(
+    mut commands: Commands,
+    game_data: Res<GameData>,
+    player_query: Query<Entity, With<Player>>,
+    existing_vfx: Query<Entity, With<PlayerShieldVfx>>,
+) {
+    let Ok(player_entity) = player_query.single() else {
+        for e in existing_vfx.iter() {
+            commands.entity(e).despawn();
+        }
+        return;
+    };
+
+    if game_data.shield == 0 {
+        for e in existing_vfx.iter() {
+            commands.entity(e).despawn();
+        }
+        return;
+    }
+
+    if !existing_vfx.is_empty() {
+        return;
+    }
+
+    // 用 lyon 直接画一个淡淡的光球，并用 ColorPulse 慢速呼吸（0.05~0.1）
+    let circle = shapes::Circle {
+        radius: 34.0,
+        center: Vec2::ZERO,
+    };
+    let base = ShapeColor::new(0.15, 0.95, 0.85, 0.05);
+    let pulse = ShapeColor::new(0.15, 0.95, 0.85, 0.10);
+    let shape = ShapeBuilder::with(&circle)
+        .fill(Fill::color(Color::from(base)))
+        .build();
+
+    commands.entity(player_entity).with_children(|parent| {
+        parent.spawn((
+            shape,
+            Transform::from_translation(Vec3::new(0.0, 0.0, -1.0)),
+            Visibility::default(),
+            PlayerShieldVfx,
+            ColorPulse {
+                base_color: base,
+                pulse_color: pulse,
+                speed: 0.7,
+                time: 0.0,
+            },
+        ));
+    });
+}
+
 /// 道具组件
 #[derive(Component)]
 pub struct PowerUp {
@@ -94,7 +151,12 @@ pub enum PowerUpType {
 
 /// 生成道具
 pub fn spawn_power_up(commands: &mut Commands, position: Vec3, power_type: PowerUpType) {
-    let blueprint = GeometryBlueprint::power_up();
+    let blueprint = match power_type {
+        PowerUpType::Coin => GeometryBlueprint::power_up_coin(),
+        PowerUpType::Shield => GeometryBlueprint::power_up_shield(),
+        PowerUpType::ExtraLife => GeometryBlueprint::power_up_heart(),
+        PowerUpType::WeaponUpgrade => GeometryBlueprint::power_up(),
+    };
     let entity = spawn_geometry_entity(commands, &blueprint, position);
 
     commands.entity(entity).insert((

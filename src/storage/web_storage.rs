@@ -34,6 +34,12 @@ pub struct SaveData {
     pub settings: GameSettings,
     /// 打赏记录 (仅记录是否有打赏)
     pub has_purchased: bool,
+    /// 机身强化等级（0-2）
+    #[serde(default)]
+    pub hull_upgrade_level: u8,
+    /// 护盾强化等级（0-2）
+    #[serde(default)]
+    pub shield_upgrade_level: u8,
 }
 
 /// 游戏设置
@@ -105,7 +111,6 @@ fn load_from_storage() -> Result<SaveData, String> {
 #[cfg(not(target_arch = "wasm32"))]
 fn load_from_storage() -> Result<SaveData, String> {
     use std::fs;
-    use std::path::PathBuf;
 
     let path = get_save_path()?;
     let data = fs::read_to_string(path).map_err(|e| format!("Read error: {}", e))?;

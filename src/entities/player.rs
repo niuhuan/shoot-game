@@ -1001,6 +1001,7 @@ fn player_collision_handler(
     mut commands: Commands,
     mut collision_events: MessageReader<CollisionEvent>,
     mut game_data: ResMut<GameData>,
+    mut floating_score_events: MessageWriter<crate::ui::FloatingScoreEvent>,
     mut next_state: ResMut<NextState<GameState>>,
     mut player_query: Query<&mut Player>,
     power_up_query: Query<&crate::entities::shield::PowerUp>,
@@ -1083,20 +1084,46 @@ fn player_collision_handler(
                         log::info!("Coin collected! Coins: {}", game_data.coins);
                     }
                     Some(crate::entities::shield::PowerUpType::Shield) => {
-                        game_data.restore_shield(1);
-                        log::info!(
-                            "Shield restored! Shield: {}/{}",
-                            game_data.shield,
-                            game_data.max_shield
-                        );
+                        if game_data.shield >= game_data.max_shield {
+                            game_data.add_score_only(1000);
+                            let pos = transforms
+                                .get(player_entity)
+                                .map(|t| t.translation + Vec3::new(0.0, 60.0, 0.0))
+                                .unwrap_or(Vec3::new(0.0, 60.0, 0.0));
+                            floating_score_events.write(crate::ui::FloatingScoreEvent {
+                                world_pos: pos,
+                                points: 1000,
+                            });
+                            log::info!("Shield full: +1000 score");
+                        } else {
+                            game_data.restore_shield(1);
+                            log::info!(
+                                "Shield restored! Shield: {}/{}",
+                                game_data.shield,
+                                game_data.max_shield
+                            );
+                        }
                     }
                     Some(crate::entities::shield::PowerUpType::ExtraLife) => {
-                        game_data.heal(1);
-                        log::info!(
-                            "Life restored! Lives: {}/{}",
-                            game_data.lives,
-                            game_data.max_lives
-                        );
+                        if game_data.lives >= game_data.max_lives {
+                            game_data.add_score_only(1000);
+                            let pos = transforms
+                                .get(player_entity)
+                                .map(|t| t.translation + Vec3::new(0.0, 60.0, 0.0))
+                                .unwrap_or(Vec3::new(0.0, 60.0, 0.0));
+                            floating_score_events.write(crate::ui::FloatingScoreEvent {
+                                world_pos: pos,
+                                points: 1000,
+                            });
+                            log::info!("HP full: +1000 score");
+                        } else {
+                            game_data.heal(1);
+                            log::info!(
+                                "Life restored! Lives: {}/{}",
+                                game_data.lives,
+                                game_data.max_lives
+                            );
+                        }
                     }
                     Some(crate::entities::shield::PowerUpType::WeaponUpgrade) => {
                         game_data.upgrading = true;

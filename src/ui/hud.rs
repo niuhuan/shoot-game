@@ -1,22 +1,36 @@
 //! HUD (Head-Up Display) 游戏内界面
 
 use bevy::prelude::*;
+use bevy::window::PrimaryWindow;
 
 use crate::entities::{BossState, Player, WeaponInventory, WeaponType};
 use crate::game::{GameData, GameState};
+
+/// 满血/满盾等情况的浮动分数提示
+#[derive(Message, Debug, Clone, Copy)]
+pub struct FloatingScoreEvent {
+    pub world_pos: Vec3,
+    pub points: u32,
+}
 
 /// HUD 插件
 pub struct HudPlugin;
 
 impl Plugin for HudPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(GameState::Playing), setup_hud)
+        app.add_message::<FloatingScoreEvent>()
+            .add_systems(OnEnter(GameState::Playing), setup_hud)
             .add_systems(OnEnter(GameState::Menu), cleanup_hud)
             .add_systems(OnEnter(GameState::GameOver), cleanup_hud)
             .add_systems(OnEnter(GameState::Recharge), cleanup_hud)
             .add_systems(
                 Update,
-                (update_hud, update_boss_hud)
+                (
+                    update_hud,
+                    update_boss_hud,
+                    spawn_floating_score_texts,
+                    update_floating_score_texts,
+                )
                     .run_if(in_state(GameState::Playing)),
             );
     }
@@ -25,6 +39,17 @@ impl Plugin for HudPlugin {
 /// HUD 根节点标记
 #[derive(Component)]
 struct HudRoot;
+
+/// 浮动文本层
+#[derive(Component)]
+struct FloatingTextLayer;
+
+#[derive(Component)]
+struct FloatingScoreText {
+    timer: Timer,
+    pos: Vec2,
+    velocity: Vec2,
+}
 
 /// 分数文本标记
 #[derive(Component)]
@@ -220,6 +245,19 @@ fn setup_hud(
                     ));
                 });
 
+            // 浮动提示层（覆盖全屏，不拦截交互）
+            parent.spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: Val::Px(0.0),
+                    top: Val::Px(0.0),
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    ..default()
+                },
+                FloatingTextLayer,
+            ));
+
             // Boss血量条（初始隐藏）
             parent
                 .spawn((
@@ -290,6 +328,107 @@ fn setup_hud(
                     ));
                 });
         });
+}
+
+fn spawn_floating_score_texts(
+    mut commands: Commands,
+    mut events: MessageReader<FloatingScoreEvent>,
+    asset_server: Res<AssetServer>,
+    layer_query: Query<Entity, With<FloatingTextLayer>>,
+    camera_query: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
+    window_query: Query<&Window, With<PrimaryWindow>>,
+) {
+    let Ok(layer) = layer_query.single() else {
+        for _ in events.read() {}
+        return;
+    };
+    let Ok((camera, camera_transform)) = camera_query.single() else {
+        for _ in events.read() {}
+        return;
+    };
+    let Ok(window) = window_query.single() else {
+        for _ in events.read() {}
+        return;
+    };
+
+    let font = asset_server.load("NotoSansCJKsc-Regular.otf");
+
+    for ev in events.read() {
+        let Ok(screen_pos) = camera.world_to_viewport(camera_transform, ev.world_pos) else {
+            continue;
+        };
+
+        let pos = Vec2::new(
+            screen_pos.x.clamp(0.0, window.width()),
+            screen_pos.y.clamp(0.0, window.height()),
+        );
+
+        commands.entity(layer).with_children(|parent| {
+            parent
+                .spawn((
+                    Node {
+                        position_type: PositionType::Absolute,
+                        left: Val::Px(pos.x),
+                        top: Val::Px(pos.y),
+                        padding: UiRect {
+                            left: Val::Px(6.0),
+                            right: Val::Px(6.0),
+                            top: Val::Px(2.0),
+                            bottom: Val::Px(2.0),
+                        },
+                        ..default()
+                    },
+                    BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.7)),
+                    FloatingScoreText {
+                        timer: Timer::from_seconds(3.0, TimerMode::Once),
+                        pos,
+                        velocity: Vec2::new(0.0, -30.0),
+                    },
+                ))
+                .with_children(|p| {
+                    p.spawn((
+                        Text::new(format!("+{}", ev.points)),
+                        TextFont {
+                            font: font.clone(),
+                            font_size: 14.0,
+                            ..default()
+                        },
+                        TextColor(Color::srgb(1.0, 0.85, 0.2)),
+                    ));
+                });
+        });
+    }
+}
+
+fn update_floating_score_texts(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut query: Query<(Entity, &mut Node, &mut FloatingScoreText, &mut BackgroundColor, &Children)>,
+    mut text_colors: Query<&mut TextColor>,
+) {
+    for (entity, mut node, mut floating, mut bg, children) in query.iter_mut() {
+        floating.timer.tick(time.delta());
+
+        let velocity = floating.velocity;
+        floating.pos += velocity * time.delta_secs();
+        node.left = Val::Px(floating.pos.x);
+        node.top = Val::Px(floating.pos.y);
+
+        let t = (1.0 - (floating.timer.elapsed_secs() / 3.0)).clamp(0.0, 1.0);
+        bg.0.set_alpha(0.7 * t);
+        for child in children.iter() {
+            if let Ok(mut color) = text_colors.get_mut(child) {
+                color.0.set_alpha(t);
+            }
+        }
+
+        if floating.timer.is_finished() {
+            for child in children.iter() {
+                commands.entity(child).despawn();
+            }
+            commands.entity(entity).despawn();
+        }
+    }
 }
 
 /// 清理 HUD

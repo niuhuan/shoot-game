@@ -60,7 +60,7 @@ impl GameData {
             lives: 3,
             max_lives: 5,
             shield: 0,
-            max_shield: 3,
+            max_shield: 4,
             play_time: 0.0,
             experience: 0,
             player_level: 1,
@@ -75,7 +75,7 @@ impl GameData {
         self.lives = 3;
         self.max_lives = 5;
         self.shield = 0;
-        self.max_shield = 3;
+        self.max_shield = 4;
         self.play_time = 0.0;
         self.experience = 0;
         self.player_level = 1;
