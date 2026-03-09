@@ -1,6 +1,6 @@
 /* 游戏专用样式 */
 
-/* 充值覆盖层样式 - 由 Rust 代码动态创建 */
+/* 打赏覆盖层样式 - 由 Rust 代码动态创建 */
 #recharge-overlay {
     position: fixed;
     top: 0;

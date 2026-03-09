@@ -290,12 +290,12 @@ function wasm_bindgen__convert__closures_____invoke__h25522545edf193a9(arg0, arg
     wasm.wasm_bindgen__convert__closures_____invoke__h25522545edf193a9(arg0, arg1, arg2);
 }
 
-function wasm_bindgen__convert__closures_____invoke__h5b4a8369c66ba6b4(arg0, arg1) {
-    wasm.wasm_bindgen__convert__closures_____invoke__h5b4a8369c66ba6b4(arg0, arg1);
-}
-
 function wasm_bindgen__convert__closures_____invoke__h097ec95e2972f94f(arg0, arg1, arg2, arg3) {
     wasm.wasm_bindgen__convert__closures_____invoke__h097ec95e2972f94f(arg0, arg1, arg2, arg3);
+}
+
+function wasm_bindgen__convert__closures_____invoke__h5b4a8369c66ba6b4(arg0, arg1) {
+    wasm.wasm_bindgen__convert__closures_____invoke__h5b4a8369c66ba6b4(arg0, arg1);
 }
 
 const __wbindgen_enum_RequestMode = ["same-origin", "no-cors", "cors", "navigate"];
@@ -305,7 +305,7 @@ const __wbindgen_enum_ResizeObserverBoxOptions = ["border-box", "content-box", "
 const __wbindgen_enum_VisibilityState = ["hidden", "visible"];
 
 /**
- * 从 JS 调用：取消充值并返回菜单
+ * 从 JS 调用：取消打赏并返回菜单
  */
 export function cancel_recharge() {
     wasm.cancel_recharge();
@@ -339,7 +339,7 @@ export function submit_recharge_code(code) {
 }
 
 /**
- * 从 JS 调用的充值提交函数
+ * 从 JS 调用的打赏提交函数
  * @param {string} username
  * @param {string} order_id
  */
@@ -2054,8 +2054,8 @@ function __wbg_get_imports() {
         const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen__closure__destroy__h27362a83eedd7a75, wasm_bindgen__convert__closures_____invoke__h25522545edf193a9);
         return ret;
     };
-    imports.wbg.__wbindgen_cast_36012a967dda4690 = function(arg0, arg1) {
-        // Cast intrinsic for `Closure(Closure { dtor_idx: 8112, function: Function { arguments: [Externref], shim_idx: 2505, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+    imports.wbg.__wbindgen_cast_3a9ff67069c56a43 = function(arg0, arg1) {
+        // Cast intrinsic for `Closure(Closure { dtor_idx: 8127, function: Function { arguments: [Externref], shim_idx: 2505, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
         const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen__closure__destroy__h4491c8a110079128, wasm_bindgen__convert__closures_____invoke__h25522545edf193a9);
         return ret;
     };
