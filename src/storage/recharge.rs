@@ -303,11 +303,12 @@ async fn perform_recharge_request(
     let text = text_value.as_string().ok_or("Response is not a string")?;
 
     // API 参考 crops: LikeScreen.dart（返回纯文本状态码）
-    // FAIL / DUPLICATE / SUCCESS / 其它 => 未知错误
+    // FAIL / DUPLICATE / SUCCESS / NOT_SYNCED / NOT_FOUND / 其它
     let code = text.trim();
     let (success, message) = match code {
         "FAIL" => (false, "订单号无效".to_string()),
         "DUPLICATE" => (false, "订单号已经使用过".to_string()),
+        "NOT_SYNCED" | "NOT_FOUND" => (false, "订单尚未同步，请稍后再试".to_string()),
         "SUCCESS" => (true, "金币已经发放，请在游戏中查看".to_string()),
         other => (false, format!("未知错误 {other}")),
     };
@@ -470,43 +471,12 @@ fn show_input_overlay() {
                 <p style="color: #fff; margin-bottom: 10px;">请填写用户名与订单号</p>
                 <p style="color: #aaa; margin-bottom: 15px; font-size: 12px; line-height: 1.5;">
                     提示：订单号来自赞助平台个人中心 -> 我的订单。每个订单号只能使用一次。
-                    请务必核实用户名无误（订单将绑定用户名，一旦操作无法撤销）。
+                    游戏或者软件里找到“刚才发了电”按钮使用。
                 </p>
                 <div style="margin-bottom: 12px;">
                     <a id="recharge-sponsor-link" href="#" style="color:#00d4ff; text-decoration: underline; font-size: 14px;">打开赞助平台（新标签页）</a>
                 </div>
-                <input type="text" id="recharge-username" maxlength="20" style="
-                    width: 100%;
-                    padding: 10px;
-                    font-size: 16px;
-                    border: 1px solid #00d4ff;
-                    border-radius: 5px;
-                    background: #0a0a1a;
-                    color: #fff;
-                    margin-bottom: 10px;
-                    box-sizing: border-box;
-                " placeholder="用户名（3-20，字母开头，仅字母/数字/_）">
-                <input type="text" id="recharge-order" maxlength="64" style="
-                    width: 100%;
-                    padding: 10px;
-                    font-size: 16px;
-                    border: 1px solid #00d4ff;
-                    border-radius: 5px;
-                    background: #0a0a1a;
-                    color: #fff;
-                    margin-bottom: 10px;
-                    box-sizing: border-box;
-                " placeholder="订单号（最多64，字母/数字/-/_）">
                 <div style="display: flex; gap: 10px; justify-content: center;">
-                    <button id="recharge-submit" style="
-                        padding: 10px 30px;
-                        font-size: 16px;
-                        background: #00d4ff;
-                        border: none;
-                        border-radius: 5px;
-                        cursor: pointer;
-                        color: #000;
-                    ">确认</button>
                     <button id="recharge-cancel" style="
                         padding: 10px 30px;
                         font-size: 16px;
